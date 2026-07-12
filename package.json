@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "pinia": "^3.0.4",
+    "router": "^2.2.0"
+  }
+}
