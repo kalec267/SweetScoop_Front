@@ -373,6 +373,7 @@
         margin: 0 0 5px;
         color: #999;
         font-size: 10px;
+        font-weight: bold;
     }
 
     .price {
@@ -431,17 +432,4 @@
         text-align: center;
     }
 
-    @media (max-width: 480px) {
-        .kiosk-frame {
-            border-width: 4px;
-        }
-
-        .size-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .bottom-back-button {
-            width: 160px;
-        }
-    }
 </style>

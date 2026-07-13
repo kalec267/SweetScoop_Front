@@ -395,37 +395,62 @@
         </header>
 
         <!-- 주문 상품 정보 -->
-        <section class="product-summary">
-            <div>
-                <p class="summary-label">
-                    선택한 상품
-                </p>
+        <!-- 아이스크림 상품 정보 -->
+        <section v-if="sizeId" class="product-summary">
+            <div class="summary-content">
+                <span class="summary-badge">아이스크림</span>
 
-                <h1>
-                    {{ sizeInfo.name || "사이즈 정보" }}
-                </h1>
+                <h1>{{ sizeInfo.name || "사이즈 정보" }}</h1>
 
                 <p class="cup-info">
                     {{ selectedCup?.name || "제공 형태 확인 중" }}
 
-                    <span
-                        v-if="
-                            Number(
-                                selectedCup?.additionalPrice
-                            ) > 0
-                        ">
+                    <strong v-if="Number(selectedCup?.additionalPrice) > 0">
                         +{{
-                            Number(
-                                selectedCup.additionalPrice
-                            ).toLocaleString()
-                        }}원
-                    </span>
+                    Number(
+                        selectedCup.additionalPrice
+                    ).toLocaleString()
+                }}원
+                    </strong>
                 </p>
             </div>
 
-            <strong class="total-price">
-                ₩{{ totalPrice.toLocaleString() }}
-            </strong>
+            <div class="summary-price-area">
+                <span>상품 금액</span>
+
+                <strong>
+                    {{ totalPrice.toLocaleString() }}원
+                </strong>
+            </div>
+        </section>
+
+        <!-- 아이스모찌·커피 화면 -->
+        <section v-else class="product-summary category-summary">
+            <div class="summary-content">
+                <span class="summary-badge">
+                    메뉴 선택
+                </span>
+
+                <h1>
+                    {{
+                selectedCategory === 2
+                    ? "아이스모찌"
+                    : "커피"
+            }}
+                </h1>
+
+                <p class="category-description">
+                    원하는 상품을 선택해주세요.
+                </p>
+            </div>
+
+            <div class="summary-price-area">
+                <span>선택 수량</span>
+
+                <strong>
+                    {{ selectedCount }}개
+                </strong>
+            </div>
         </section>
 
         <nav class="category-tab">
@@ -451,6 +476,26 @@
             </button>
         </nav>
 
+        <div class="menu-guide">
+            <div>
+                <strong>
+                    {{
+                selectedCategory === 1
+                    ? "원하는 맛을 선택해주세요"
+                    : "원하는 상품을 선택해주세요"
+            }}
+                </strong>
+
+                <p>
+                    선택한 상품을 다시 누르면 취소됩니다.
+                </p>
+            </div>
+
+            <span>
+                {{ selectedCount }}개 선택
+            </span>
+        </div>
+
         <!-- 메뉴 목록 -->
         <section class="menu-section">
             <p v-if="loading" class="status-message">
@@ -475,20 +520,24 @@
 
         <!-- 선택 상태 -->
         <section class="selection-status">
-            <strong v-if="selectedCategory === 1">
-                맛 선택
-                {{ selectedCount }}
-                /
-                {{ sizeInfo.flavorCnt || 0 }}
-            </strong>
+            <div>
+                <span class="selection-label">
+                    선택 내역
+                </span>
 
-            <strong v-else>
-                선택한 상품
-                {{ selectedCount }}개
-            </strong>
+                <strong v-if="selectedCategory === 1">
+                    {{ selectedCount }}
+                    /
+                    {{ sizeInfo.flavorCnt || 0 }}
+                </strong>
+
+                <strong v-else>
+                    {{ selectedCount }}개
+                </strong>
+            </div>
 
             <p>
-                선택한 상품을 다시 누르면 취소됩니다.
+                선택한 상품을 누르면 목록에서 제거됩니다.
             </p>
         </section>
 
@@ -557,7 +606,7 @@
 <style scoped="scoped">
     :global(body) {
         margin: 0;
-        background: #f3f3f3;
+        background: #ececec;
         font-family: "Malgun Gothic", "Segoe UI", sans-serif;
     }
 
@@ -573,24 +622,29 @@
         width: min(100%, 540px);
         min-height: 100vh;
         margin: 0 auto;
-        padding-bottom: 105px;
+        padding-bottom: 125px;
+        background: #ffffff;
         position: relative;
-        background: #fff;
     }
 
     /* 상단 */
 
     .top-header {
-        height: 62px;
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        height: 64px;
         display: grid;
-        grid-template-columns: 65px 1fr 65px;
+        grid-template-columns: 58px 1fr 58px;
         align-items: center;
-        padding: 5px 12px;
+        padding: 6px 14px;
+        border-bottom: 1px solid #f1f1f1;
+        background: rgba(255, 255, 255, 0.97);
     }
 
     .home-button {
-        width: 45px;
-        height: 45px;
+        width: 44px;
+        height: 44px;
         padding: 0;
         border: 0;
         background: transparent;
@@ -605,97 +659,234 @@
 
     .header-title {
         text-align: center;
-        color: #ff1493;
-        font-size: 15px;
+        color: #222;
+        font-size: 17px;
         font-weight: 800;
     }
 
     .top-back-button {
-        padding: 8px 11px;
+        height: 36px;
+        padding: 0 12px;
         border: 0;
-        border-radius: 18px;
-        background: #ffe5f2;
-        color: #d90072;
+        border-radius: 20px;
+        background: #fff0f7;
+        color: #e60073;
         font-size: 12px;
-        font-weight: 700;
+        font-weight: 800;
         cursor: pointer;
     }
 
     /* 상품 요약 */
 
     .product-summary {
+        margin: 16px 16px 14px;
+        padding: 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         gap: 18px;
-        padding: 20px 34px 15px;
+        border: 1px solid #ffd6e9;
+        border-radius: 22px;
+        background: linear-gradient(135deg, #fff7fb, #ffffff);
+        box-shadow: 0 8px 24px rgba(255, 20, 147, 0.08);
     }
 
-    .summary-label {
-        margin: 0 0 5px;
-        color: #aaa;
-        font-size: 11px;
+    .summary-content {
+        min-width: 0;
     }
 
-    .product-summary h1 {
-        margin: 0;
+    .summary-badge {
+        display: inline-flex;
+        padding: 5px 10px;
+        border-radius: 20px;
+        background: #ff1493;
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 800;
+    }
+
+    .summary-content h1 {
+        margin: 9px 0 0;
         color: #222;
-        font-size: 20px;
+        font-size: 21px;
+        line-height: 1.3;
     }
 
+    .category-description,
     .cup-info {
         margin: 7px 0 0;
         color: #777;
         font-size: 12px;
     }
 
-    .cup-info span {
+    .cup-info strong {
         margin-left: 5px;
         color: #ff1493;
-        font-weight: 700;
     }
 
-    .total-price {
+    .summary-price-area {
+        flex-shrink: 0;
+        text-align: right;
+    }
+
+    .summary-price-area span {
+        display: block;
+        margin-bottom: 5px;
+        color: #999;
+        font-size: 10px;
+    }
+
+    .summary-price-area strong {
         color: #ff1493;
-        font-size: 21px;
+        font-size: 20px;
         white-space: nowrap;
+    }
+
+    /* 카테고리 탭 */
+
+    .category-tab {
+        position: sticky;
+        top: 64px;
+        z-index: 15;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        margin: 0;
+        padding: 0 14px;
+        border-bottom: 1px solid #eeeeee;
+        background: #ffffff;
+    }
+
+    .category-tab button {
+        position: relative;
+        padding: 15px 4px 13px;
+        border: 0;
+        background: #ffffff;
+        color: #9a9a9a;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .category-tab button::after {
+        content: "";
+        width: 0;
+        height: 3px;
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        border-radius: 3px;
+        background: #ff1493;
+        transform: translateX(-50%);
+        transition: width 0.2s;
+    }
+
+    .category-tab button.active {
+        color: #ff1493;
+    }
+
+    .category-tab button.active::after {
+        width: 55%;
+    }
+
+    /* 메뉴 안내 */
+
+    .menu-guide {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        padding: 18px 18px 12px;
+    }
+
+    .menu-guide strong {
+        color: #222;
+        font-size: 15px;
+    }
+
+    .menu-guide p {
+        margin: 4px 0 0;
+        color: #999;
+        font-size: 10px;
+    }
+
+    .menu-guide > span {
+        flex-shrink: 0;
+        padding: 7px 11px;
+        border-radius: 20px;
+        background: #fff0f7;
+        color: #ff1493;
+        font-size: 11px;
+        font-weight: 800;
+    }
+
+    /* 메뉴 목록 */
+
+    .menu-section {
+        min-height: 340px;
+        padding: 0 14px 24px;
+    }
+
+    .menu-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px 6px;
+    }
+
+    .status-message {
+        padding: 100px 0;
+        text-align: center;
+        color: #999;
+        font-size: 13px;
     }
 
     /* 선택 상태 */
 
     .selection-status {
-        margin: 5px 22px 15px;
-        padding: 12px;
-        border-radius: 12px;
+        margin: 12px 16px 10px;
+        padding: 14px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 15px;
         background: #fff5fa;
-        text-align: center;
+    }
+
+    .selection-status > div {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .selection-label {
+        color: #666;
+        font-size: 12px;
     }
 
     .selection-status strong {
         color: #ff1493;
-        font-size: 15px;
+        font-size: 16px;
     }
 
     .selection-status p {
-        margin: 5px 0 0;
+        margin: 0;
         color: #999;
-        font-size: 11px;
+        font-size: 9px;
     }
 
-    /* 선택 슬롯 */
+    /* 선택 상품 */
 
     .selected-area {
-        min-height: 120px;
+        min-height: 115px;
         display: flex;
         justify-content: center;
         align-items: flex-start;
-        gap: 12px;
-        padding: 4px 15px 12px;
+        gap: 11px;
+        padding: 5px 14px 20px;
         overflow-x: auto;
     }
 
     .selected-slot {
-        flex: 0 0 76px;
+        flex: 0 0 74px;
         padding: 0;
         border: 0;
         background: transparent;
@@ -704,31 +895,33 @@
     }
 
     .slot-box {
-        width: 70px;
-        height: 70px;
+        width: 68px;
+        height: 68px;
         margin: 0 auto;
         display: flex;
         justify-content: center;
         align-items: center;
-        border: 2px solid #ff8fc8;
+        border: 2px dashed #ff9dcb;
         border-radius: 18px;
+        background: #fffafd;
         overflow: hidden;
-        background: #fff;
     }
 
     .slot-box.filled {
-        background: #fff8fc;
+        border-style: solid;
+        border-color: #ff1493;
+        background: #ffffff;
     }
 
     .slot-box img {
-        width: 64px;
-        height: 64px;
+        width: 62px;
+        height: 62px;
         object-fit: contain;
     }
 
     .empty-symbol {
-        color: #ff9dce;
-        font-size: 25px;
+        color: #ff9dcb;
+        font-size: 24px;
     }
 
     .slot-number {
@@ -743,116 +936,81 @@
         background: #ff1493;
         color: #fff;
         font-size: 10px;
-        font-weight: 700;
+        font-weight: 800;
     }
 
     .slot-name {
-        min-height: 26px;
-        margin: 4px 0 0;
-        color: #777;
+        min-height: 25px;
+        margin: 5px 0 0;
+        color: #666;
         font-size: 9px;
         line-height: 1.35;
     }
 
-    /* 카테고리 */
-
-    .category-tab {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        margin: 0 14px 17px;
-        border-bottom: 1px solid #eee;
-    }
-
-    .category-tab button {
-        padding: 11px 3px;
-        border: 0;
-        border-bottom: 3px solid transparent;
-        background: #fff;
-        color: #999;
-        font-size: 12px;
-        cursor: pointer;
-    }
-
-    .category-tab button.active {
-        border-bottom-color: #ff1493;
-        color: #ff1493;
-        font-weight: 800;
-    }
-
-    /* 메뉴 */
-
-    .menu-section {
-        min-height: 310px;
-        padding: 0 14px 20px;
-    }
-
-    .menu-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px 5px;
-    }
-
-    .status-message {
-        padding: 80px 0;
-        text-align: center;
-        color: #999;
-        font-size: 13px;
-    }
-
-    /* 하단 */
+    /* 하단 버튼 */
 
     .bottom-bar {
-        width: 100%;
-        height: 94px;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 14px;
-        padding: 17px 12px;
-        position: absolute;
-        left: 0;
+        width: min(100%, 540px);
+        position: fixed;
+        left: 50%;
         bottom: 0;
-        border-top: 1px solid #eee;
-        background: #fff;
+        z-index: 30;
+        transform: translateX(-50%);
+        display: grid;
+        grid-template-columns: 0.8fr 1.2fr;
+        gap: 12px;
+        padding: 15px 14px 18px;
+        border-top: 1px solid #eeeeee;
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.06);
     }
 
     .bottom-button {
-        border-radius: 31px;
+        height: 58px;
+        border-radius: 30px;
         font-size: 15px;
-        font-weight: 700;
+        font-weight: 800;
         cursor: pointer;
     }
 
     .bottom-button.previous {
-        border: 1px solid #ddd;
-        background: #fff;
+        border: 1px solid #dddddd;
+        background: #ffffff;
         color: #ff1493;
     }
 
     .bottom-button.next {
         border: 0;
-        background: #ff1493;
-        color: #fff;
+        background: linear-gradient(135deg, #ff1493, #ff4da6);
+        color: #ffffff;
+        box-shadow: 0 8px 18px rgba(255, 20, 147, 0.22);
     }
 
     .bottom-button.next:disabled {
         background: #d8d8d8;
+        box-shadow: none;
         cursor: not-allowed;
     }
 
     .arrow {
-        margin-right: 15px;
-        font-size: 31px;
+        margin-right: 10px;
+        font-size: 28px;
         line-height: 0;
-        vertical-align: -3px;
+        vertical-align: -2px;
     }
 
     @media (max-width: 480px) {
-        .kiosk-frame {
-            border-width: 4px;
+        .product-summary {
+            margin: 12px;
+            padding: 17px;
         }
 
-        .product-summary {
-            padding: 17px 20px 13px;
+        .summary-content h1 {
+            font-size: 18px;
+        }
+
+        .summary-price-area strong {
+            font-size: 17px;
         }
 
         .menu-grid {
@@ -861,6 +1019,12 @@
 
         .selected-area {
             justify-content: flex-start;
+        }
+
+        .selection-status {
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 5px;
         }
     }
 </style>

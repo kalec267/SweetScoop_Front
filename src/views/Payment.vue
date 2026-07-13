@@ -115,15 +115,6 @@
             });
         }
 
-        /*
-     * 현재 백엔드 ORDERITEM은 cupId와 sizeId가 필수입니다.
-     *
-     * 따라서 아이스모찌와 커피를 별도 ORDERITEM으로 저장하려면
-     * 각 상품에 사용할 cupId, sizeId 구조를 먼저 결정해야 합니다.
-     *
-     * 현재 단계에서는 결제 화면 표시와 총액 계산까지만 처리합니다.
-     */
-
         return {
             customerId: orderData.value.customerId ?? 1,
 
@@ -142,15 +133,10 @@
                 .slice(0, 19),
 
             waitingNo: null,
-
             receiptNo: `R${Date.now()}`,
-
             totalPrice: totalPrice.value,
-
             couponUsed: false,
-
             items,
-
             payment: {
                 paymentMethod: paymentMethod.value,
                 amount: totalPrice.value
@@ -551,43 +537,26 @@
     /* 선택 상품 */
 
     .product-list {
-
         display: flex;
-
         flex-direction: column;
-
         gap: 12px;
-
     }
 
     .product-card {
-
         display: flex;
-
         align-items: center;
-
         gap: 15px;
-
         padding: 12px;
-
         border: 1px solid #eee;
-
         border-radius: 15px;
-
         background: #fafafa;
-
     }
 
     .product-card img {
-
         width: 70px;
-
         height: 70px;
-
         object-fit: contain;
-
         flex-shrink: 0;
-
     }
 
     .product-card p {
@@ -712,49 +681,23 @@
         cursor: not-allowed;
     }
 
-    .product-info{
+    .product-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
 
-    flex:1;
+    .product-info h4 {
+        margin: 0;
+        font-size: 17px;
+        color: #222;
+    }
 
-    display:flex;
-
-    flex-direction:column;
-
-    justify-content:center;
-
-}
-
-.product-info h4{
-
-    margin:0;
-
-    font-size:17px;
-
-    color:#222;
-
-}
-
-.product-info span{
-
-    margin-top:6px;
-
-    color:#ff1493;
-
-    font-weight:bold;
-
-    font-size:14px;
-
-}
-
-    @media (max-width: 480px) {
-        .payment-page {
-            padding-left: 12px;
-            padding-right: 12px;
-        }
-
-        .payment-footer {
-            padding-left: 12px;
-            padding-right: 12px;
-        }
+    .product-info span {
+        margin-top: 6px;
+        color: #ff1493;
+        font-weight: bold;
+        font-size: 14px;
     }
 </style>

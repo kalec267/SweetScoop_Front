@@ -1,118 +1,87 @@
-<script setup>
+<script setup="setup">
 
-const props = defineProps({
-    menu: {
-        type: Object,
-        required: true
-    },
-    selected: {
-        type: Boolean,
-        default: false
-    }
-})
+    const props = defineProps({
+        menu: {
+            type: Object,
+            required: true
+        },
+        selected: {
+            type: Boolean,
+            default: false
+        }
+    })
 
-const emit = defineEmits(["selectMenu"])
-
+    const emit = defineEmits(["selectMenu"])
 </script>
 
 <template>
 
-<div
-    class="menu-card"
-    :class="{ selected }"
-    @click="emit('selectMenu', menu)"
->
+    <div
+        class="menu-card"
+        :class="{ selected: selected }"
+        @click="emit('selectMenu', menu)">
 
-    <div class="image-box">
-        <img
-            :src="menu.menuImg"
-            :alt="menu.name"
-            class="menu-image"
-        >
-    </div>
+        <div class="image-area">
+            <img :src="menu.menuImg" :alt="menu.name" class="menu-image"></div>
 
-    <div class="menu-name">
-        {{ menu.name }}
-    </div>
+            <h2 class="menu-title">
+                {{ menu.name }}
+            </h2>
 
-</div>
+            <p v-if="menu.categoryId !== 1 && menu.price != null" class="menu-price">
+                ₩{{ Number(menu.price).toLocaleString() }}
+            </p>
 
-</template>
+        </div>
+    </template>
 
-<style scoped>
+    <style scoped="scoped">
+        .menu-card {
+            min-width: 0;
+            padding: 12px 5px 14px;
+            border: 2px solid transparent;
+            border-radius: 16px;
+            background: #fff;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
 
-.menu-card{
+        .menu-card:hover {
+            border-color: #ff8fc8;
+            background: #fff8fc;
+            transform: translateY(-3px);
+        }
 
-    background:white;
+        .menu-card.selected {
+            border-color: #ff1493;
+            background: #fff0f7;
+        }
 
-    border:2px solid transparent;
+        .image-area {
+            height: 78px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
-    border-radius:18px;
+        .menu-image {
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+        }
+        .menu-title {
+            min-height: 34px;
+            margin: 8px 0 4px;
+            color: #222;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.4;
+        }
 
-    padding:12px 8px;
-
-    text-align:center;
-
-    cursor:pointer;
-
-    transition:.2s;
-
-}
-
-.menu-card:hover{
-
-    border-color:#ff9acb;
-
-    background:#fff8fc;
-
-}
-
-.menu-card.selected{
-
-    border-color:#ff1493;
-
-    background:#fff0f7;
-
-}
-
-.image-box{
-
-    width:100%;
-
-    height:90px;
-
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
-
-}
-
-.menu-image{
-
-    width:72px;
-
-    height:72px;
-
-    object-fit:contain;
-
-}
-
-.menu-name{
-
-    margin-top:10px;
-
-    font-size:13px;
-
-    font-weight:600;
-
-    color:#333;
-
-    line-height:1.3;
-
-    min-height:34px;
-
-}
-
-</style>
+        .menu-price {
+            color: #ff1493;
+            font-size: 11px;
+            font-weight: 700;
+        }
+    </style>

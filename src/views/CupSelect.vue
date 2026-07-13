@@ -8,7 +8,7 @@
 
     const cups = ref([]);
     const selectedCup = ref(null);
-
+    
     const orderType = route.query.orderType;
     const sizeId = Number(route.query.sizeId);
 
@@ -275,34 +275,6 @@
 
         .extra-price {
             font-size: 11px;
-        }
-    }
-
-    /* 모바일 */
-    @media (max-width: 480px) {
-        .cup-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 8px;
-        }
-
-        .cup-card {
-            min-height: 125px;
-            border-radius: 14px;
-        }
-
-        .cup-icon img {
-            width: 48px;
-            height: 48px;
-        }
-
-        .bottom-bar {
-            flex-direction: column;
-            align-items: stretch;
-        }
-
-        .next-btn {
-            width: 100%;
-            min-width: 0;
         }
     }
 </style>
