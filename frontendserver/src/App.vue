@@ -25,17 +25,21 @@ body {
   background-color: #f8fafc;
 }
 .app-layout {
-  display: flex;
+  display: flex;          /* 👈 핵심 1: 사이드바와 메인을 가로로 나란히 배치 */
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
 }
 .main-content {
-  margin-left: 260px; /* 사이드바 가로폭만큼 마진 할당 */
-  flex-grow: 1;
-  min-height: 100vh;
+  flex: 1;                /* 👈 핵심 2: 남은 가로 공간을 메인 영역이 100% 꽉 채우도록 설정 */
   display: flex;
-  flex-direction: column;
+  flex-direction: column; /* 헤더가 위, router-view가 아래로 가도록 설정 */
+  height: 100vh;
+  overflow-y: auto;       /* 콘텐츠가 길어지면 메인 영역 안에서만 스크롤되도록 설정 */
+  background-color: #f8fafc;
 }
 .page-body {
-  flex-grow: 1;
-  padding: 0 30px 30px 30px;
+  flex: 1;
+  padding: 0;
 }
 </style>
