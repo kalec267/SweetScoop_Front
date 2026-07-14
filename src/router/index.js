@@ -8,6 +8,18 @@ const router = createRouter({
       path: '/inventory',
       name: 'inventory',
       component: () => import('../views/inventory/BranchInventoryView.vue')
+    },
+
+    {
+      path: '/inventory/hq-orders',
+      name: 'HqOrderManagement',
+      component: () => import('../views/inventory/HqOrderManagement.vue')
+    },
+
+    {
+      path: '/sales',
+      name: 'sales',
+      component: () => import('../views/sales/SalesDashboard.vue')
     }
   ]
 })

@@ -4,7 +4,11 @@
       <router-link to="/inventory" style="color: var(--accent); text-decoration: none; font-weight: bold;">
         Store Inventory Management
       </router-link>
+      <router-link to="/inventory/hq-orders" class="nav-item hq-link">
+        🏢 본사 발주 승인
+      </router-link>
     </nav>
+    
 
     <main style="flex-grow: 1;">
       <RouterView />
