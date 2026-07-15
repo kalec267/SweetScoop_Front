@@ -1,3 +1,5 @@
+<!-- 아이스크림 사이즈(레귤러, 주니어, 파인트, 쿼터, 패밀리 등)을 선택하는 페이지 -->
+
 <script setup="setup">
     import {ref, onMounted} from "vue";
     import {useRouter, useRoute} from "vue-router";

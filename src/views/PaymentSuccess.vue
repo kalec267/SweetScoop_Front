@@ -1,3 +1,5 @@
+<!-- 결제 성공 시 출력되는 페이지 -->
+
 <script setup>
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -165,51 +167,95 @@ const confirmPayment = async () => {
     );
 
     if (
-        confirmResponse.data?.success === false
-    ) {
-        throw new Error(
-            confirmResponse.data.message ||
-            "결제 승인이 실패했습니다."
-        );
-    }
+    confirmResponse.data?.success === false
+) {
+    throw new Error(
+        confirmResponse.data.message ||
+        "결제 승인이 실패했습니다."
+    );
+}
 
+/*
+ * 회원 주문이면 결제 성공 후 5% 포인트 적립
+ */
+const member =
+    paymentData.orderData?.member;
+
+let rewardResult = null;
+
+if (
+    member?.isMember === true &&
+    member.memberId
+) {
     processingMessage.value =
-        "영수증을 발행하고 있습니다.";
+        "회원 포인트를 적립하고 있습니다.";
+
+    const rewardResponse = await api.post(
+        "/api/order/members/reward",
+        {
+            memberId: member.memberId,
+            orderId: realOrderId,
+            paymentAmount: amount
+        }
+    );
+
+    rewardResult = rewardResponse.data;
+
+    console.log(
+        "회원 포인트 적립 결과:",
+        rewardResult
+    );
+}
+
+processingMessage.value =
+    "영수증을 발행하고 있습니다.";
 
     /*
      * 주문 완료 화면에서 사용할 데이터
      */
     const receiptData = {
-        orderId: realOrderId,
+    orderId: realOrderId,
 
-        receiptNo:
-            confirmResponse.data?.receiptNo ||
-            paymentData.orderRequest?.receiptNo ||
-            null,
+    receiptNo:
+        confirmResponse.data?.receiptNo ||
+        paymentData.orderRequest?.receiptNo ||
+        null,
 
-        orderType:
-            paymentData.orderData?.orderType,
+    orderType:
+        paymentData.orderData?.orderType,
 
-        amount,
+    amount,
 
-        paymentMethod:
-            paymentData.paymentMethod,
+    paymentMethod:
+        paymentData.paymentMethod,
 
-        paymentKey,
+    paymentKey,
+    tossOrderId,
 
-        tossOrderId,
+    approvedAt:
+        confirmResponse.data?.approvedAt ||
+        new Date().toISOString(),
 
-        approvedAt:
-            confirmResponse.data?.approvedAt ||
-            new Date().toISOString(),
+    receipt:
+        confirmResponse.data?.receipt ||
+        null,
 
-        receipt:
-            confirmResponse.data?.receipt ||
-            null,
+    orderData:
+        paymentData.orderData,
 
-        orderData:
-            paymentData.orderData
-    };
+    member: member || null,
+
+    pointReward: rewardResult
+        ? {
+            memberId: rewardResult.id,
+            totalPoint:
+                Number(rewardResult.point) || 0,
+
+            earnedPoint:
+                Math.floor(amount * 0.05)
+        }
+        : null
+};
 
     sessionStorage.setItem(
         "receiptData",

@@ -1,3 +1,5 @@
+<!-- Payment.vue 페이지에서 총 금액과 결제 수단을 결정하기 때문에 필요 없는 페이지 -->
+<!--
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -252,6 +254,7 @@ onMounted(loadOrderData);
                     결제 수단을 선택하면 결제창이 실행됩니다.
                 </p>
             </section>
+-->
 
             <!-- 주문 요약 -->
             <section class="order-summary">
@@ -624,3 +627,4 @@ button {
     }
 }
 </style>
+-->

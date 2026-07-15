@@ -1,3 +1,5 @@
+<!-- 컵, 콘, 와플콘을 선택하는 페이지 -->
+
 <script setup="setup">
     import {ref, onMounted} from "vue";
     import {useRoute, useRouter} from "vue-router";

@@ -1,9 +1,15 @@
+<!-- 결제 페이지 -->
 <script setup="setup">
     import {computed, onMounted, ref} from "vue";
     import {useRouter} from "vue-router";
     import api from "../api/axios";
 
     const router = useRouter();
+    const showPhoneModal = ref(false);
+    const phoneNumber = ref("");
+    const memberInfo = ref(null);
+    const memberMessage = ref("");
+    const checkingMember = ref(false);
 
     const orderData = ref({
         orderType: "",
@@ -85,6 +91,16 @@
         return orderData.value.coffee.length > 0;
     });
 
+    const normalizePhoneNumber = (value) => {
+        return String(value)
+            .replace(/[^0-9]/g, "")
+            .slice(0, 11);
+    };
+
+    const handlePhoneInput = (event) => {
+        phoneNumber.value = normalizePhoneNumber(event.target.value);
+    };
+
     const loadOrderData = () => {
         const savedOrder = sessionStorage.getItem("orderData");
 
@@ -125,9 +141,6 @@
     const createOrderRequest = () => {
         const items = [];
 
-        /*
-     * 아이스크림 ORDERITEM
-     */
         if (orderData.value.iceCream) {
             items.push({
                 cupId: orderData.value.iceCream.cupId,
@@ -145,18 +158,19 @@
             });
         }
 
+        /*
+     * 아이스모찌와 커피도 ORDERITEM으로 저장하려면
+     * 사이즈/컵 구조에 맞춰 별도 items.push가 필요합니다.
+     */
+
         return {
             customerId: orderData.value.customerId ?? 1,
-
             branchId: orderData.value.branchId ?? 1,
-
             kioskId: orderData.value.kioskId ?? 1,
 
             orderType: orderData.value.orderType,
-
             language: "KO",
-
-            status: "PAYMENT_COMPLETE",
+            status: "PAYMENT_PENDING",
 
             createdAt: new Date()
                 .toISOString()
@@ -166,7 +180,9 @@
             receiptNo: `R${Date.now()}`,
             totalPrice: totalPrice.value,
             couponUsed: false,
+
             items,
+
             payment: {
                 paymentMethod: paymentMethod.value,
                 amount: totalPrice.value
@@ -175,96 +191,188 @@
     };
 
     const pay = async () => {
-    if (paying.value) {
-        return;
-    }
-
-    if (!paymentMethod.value) {
-        alert("결제 수단을 선택해주세요.");
-        return;
-    }
-
-    if (totalPrice.value <= 0) {
-        alert("결제 금액을 확인해주세요.");
-        return;
-    }
-
-    if (typeof window.TossPayments !== "function") {
-        alert("결제 모듈을 불러오지 못했습니다.");
-        return;
-    }
-
-    paying.value = true;
-
-    try {
-        const orderRequest = {
-            ...createOrderRequest(),
-            status: "PAYMENT_PENDING"
-        };
-
-        const orderResponse = await api.post(
-            "/api/order",
-            orderRequest
-        );
-
-        const realOrderId =
-            orderResponse.data.orderId;
-
-        if (!realOrderId) {
-            throw new Error(
-                "생성된 주문번호를 받지 못했습니다."
-            );
+        if (paying.value) {
+            return;
         }
 
-        const tossOrderId =
-            `SWEETSCOOP-${realOrderId}-${Date.now()}`;
+        if (!paymentMethod.value) {
+            alert("결제 수단을 선택해주세요.");
+            return;
+        }
 
-        const paymentData = {
-            orderData: orderData.value,
-            orderRequest,
-            realOrderId,
-            tossOrderId,
-            paymentMethod: paymentMethod.value,
-            amount: totalPrice.value,
-            status: "READY"
-        };
+        if (totalPrice.value <= 0) {
+            alert("결제 금액을 확인해주세요.");
+            return;
+        }
 
-        sessionStorage.setItem(
-            "paymentData",
-            JSON.stringify(paymentData)
-        );
+        if (typeof window.TossPayments !== "function") {
+            alert("결제 모듈을 불러오지 못했습니다.");
+            return;
+        }
 
-        const tossPayments = window.TossPayments(
-            "test_ck_GjLJoQ1aVZp0Bbwb0yl58w6KYe2R"
-        );
+        paying.value = true;
 
-        await tossPayments.requestPayment(
-            paymentMethod.value,
-            {
+        try {
+            sessionStorage.setItem("orderData", JSON.stringify(orderData.value));
+
+            const orderRequest = {
+                ...createOrderRequest(),
+                status: "PAYMENT_PENDING"
+            };
+
+            const orderResponse = await api.post("/api/order", orderRequest);
+
+            const realOrderId = Number(orderResponse.data.orderId);
+
+            if (!realOrderId) {
+                throw new Error("생성된 주문번호를 받지 못했습니다.");
+            }
+
+            const tossOrderId = `SWEETSCOOP-${realOrderId}-${Date.now()}`;
+
+            const paymentData = {
+                orderData: orderData.value,
+                orderRequest,
+                realOrderId,
+                tossOrderId,
+                paymentMethod: paymentMethod.value,
+                amount: totalPrice.value,
+                status: "READY"
+            };
+
+            sessionStorage.setItem("paymentData", JSON.stringify(paymentData));
+
+            const tossPayments = window.TossPayments(
+                "test_ck_GjLJoQ1aVZp0Bbwb0yl58w6KYe2R"
+            );
+
+            await tossPayments.requestPayment(paymentMethod.value, {
                 amount: totalPrice.value,
                 orderId: tossOrderId,
                 orderName: orderName.value,
 
-                successUrl:
-                    `${window.location.origin}` +
-                    `/payment/success?realOrderId=${realOrderId}`,
+                successUrl: `${window.location.origin}` +
+                        `/payment/success?realOrderId=${realOrderId}`,
 
-                failUrl:
-                    `${window.location.origin}/payment`
+                failUrl: `${window.location.origin}/payment`
+            });
+        } catch (error) {
+            console.error("결제 준비 실패:", error);
+
+            alert(
+                error.response
+                    ?.data
+                        ?.message || error.message || "결제 준비 중 오류가 발생했습니다."
+            );
+        } finally {
+            paying.value = false;
+        }
+    };
+
+    const openPhoneModal = () => {
+        if (!paymentMethod.value) {
+            alert("결제 수단을 선택해주세요.");
+            return;
+        }
+
+        phoneNumber.value = "";
+        showPhoneModal.value = true;
+        memberMessage.value = "";
+        memberInfo.value = null;
+    };
+    const checkInMember = async () => {
+        const normalizedPhone = normalizePhoneNumber(phoneNumber.value);
+
+        if (normalizedPhone.length !== 11) {
+            memberMessage.value = "전화번호 11자리를 입력해주세요.";
+            return;
+        }
+
+        checkingMember.value = true;
+        memberMessage.value = "";
+
+        try {
+            const memberCustomerId = 1;
+
+            const response = await api.post("/api/order/members/check-in", null, {
+                params: {
+                    customerId: memberCustomerId,
+                    phoneNumber: normalizedPhone
+                }
+            });
+
+            memberInfo.value = response.data;
+
+            memberMessage.value = `회원 확인 완료 · 결제 후 ${
+            Math
+                .floor(totalPrice.value * 0.05)
+                .toLocaleString()}P 적립 예정`;
+
+        } catch (error) {
+            console.error("회원 확인 또는 가입 실패:", error);
+
+            memberMessage.value = error.response
+                ?.data
+                    ?.message || "회원 처리 중 오류가 발생했습니다.";
+        } finally {
+            checkingMember.value = false;
+        }
+    };
+
+    const continueAsMember = async () => {
+        if (!memberInfo.value) {
+            alert("전화번호 확인을 먼저 진행해주세요.");
+            return;
+        }
+
+        const memberCustomerId = 1;
+
+        orderData.value = {
+            ...orderData.value,
+
+            customerId: memberCustomerId,
+
+            member: {
+                isMember: true,
+                memberId: memberInfo.value.id,
+                customerId: memberCustomerId,
+                phoneNumber: memberInfo.value.phoneNumber,
+                currentPoint: Number(memberInfo.value.point) || 0,
+                expectedPoint: Math.floor(totalPrice.value * 0.05)
             }
-        );
-    } catch (error) {
-        console.error("결제 준비 실패:", error);
+        };
 
-        alert(
-            error.response?.data?.message ||
-            error.message ||
-            "결제 준비 중 오류가 발생했습니다."
-        );
-    } finally {
-        paying.value = false;
-    }
-};
+        sessionStorage.setItem("orderData", JSON.stringify(orderData.value));
+
+        showPhoneModal.value = false;
+
+        await pay();
+    };
+
+    const continueAsGuest = async () => {
+        const guestCustomerId = 2;
+
+        orderData.value = {
+            ...orderData.value,
+
+            customerId: guestCustomerId,
+
+            member: {
+                isMember: false,
+                memberId: null,
+                customerId: guestCustomerId,
+                phoneNumber: null,
+                currentPoint: 0,
+                expectedPoint: 0
+            }
+        };
+
+        sessionStorage.setItem("orderData", JSON.stringify(orderData.value));
+
+        showPhoneModal.value = false;
+
+        await pay();
+    };
 
     onMounted(loadOrderData);
 </script>
@@ -472,7 +580,7 @@
                 type="button"
                 class="payment-button"
                 :disabled="paying || !paymentMethod"
-                @click="pay">
+                @click="openPhoneModal">
                 {{
         paying
             ? "결제창 실행 중..."
@@ -482,6 +590,103 @@
     }}
             </button>
         </footer>
+
+        <div
+            v-if="showPhoneModal"
+            class="phone-modal-overlay"
+            @click.self="showPhoneModal = false">
+            <section class="phone-modal">
+                <button type="button" class="modal-close" @click="showPhoneModal = false">
+                    ×
+                </button>
+
+                <div class="phone-icon">📱</div>
+
+                <h2>포인트 적립</h2>
+
+                <p class="modal-description">
+                    전화번호를 입력하면 기존 회원을 확인하고, 등록되지 않은 번호라면 자동으로 회원가입됩니다. 결제 완료 후 결제 금액의
+                    <strong>5%</strong>가 적립됩니다.
+                </p>
+
+                <input
+                    :value="phoneNumber"
+                    type="tel"
+                    inputmode="numeric"
+                    maxlength="11"
+                    placeholder="01012345678"
+                    class="phone-input"
+                    @input="handlePhoneInput"
+                    @keyup.enter="checkInMember"/>
+
+                <button
+                    type="button"
+                    class="member-check-button"
+                    :disabled="checkingMember"
+                    @click="checkInMember">
+                    {{
+                checkingMember
+                    ? "회원 확인 중..."
+                    : "회원 확인 및 자동 가입"
+            }}
+                </button>
+
+                <p v-if="memberMessage" class="member-message" :class="{ success: memberInfo }">
+                    {{ memberMessage }}
+                </p>
+
+                <div v-if="memberInfo" class="member-result">
+                    <div>
+                        <span>회원 번호</span>
+
+                        <strong>
+                            {{ memberInfo.id }}
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>현재 포인트</span>
+
+                        <strong>
+                            {{
+                        Number(
+                            memberInfo.point || 0
+                        ).toLocaleString()
+                    }}P
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>결제 후 적립 예정</span>
+
+                        <strong class="earned-point">
+                            +{{
+                        Math.floor(
+                            totalPrice * 0.05
+                        ).toLocaleString()
+                    }}P
+                        </strong>
+                    </div>
+                </div>
+
+                <button
+                    v-if="memberInfo"
+                    type="button"
+                    class="member-continue-button"
+                    :disabled="paying"
+                    @click="continueAsMember">
+                    회원으로 결제하기
+                </button>
+
+                <button
+                    type="button"
+                    class="skip-button"
+                    :disabled="paying"
+                    @click="continueAsGuest">
+                    건너뛰기 · 비회원으로 결제
+                </button>
+            </section>
+        </div>
     </main>
 </template>
 
@@ -877,5 +1082,154 @@
         background: #cccccc;
         box-shadow: none;
         cursor: not-allowed;
+    }
+
+    .phone-modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        background: rgba(0, 0, 0, 0.45);
+    }
+
+    .phone-modal {
+        width: min(100%, 420px);
+        max-height: 90vh;
+        position: relative;
+        padding: 30px 24px 22px;
+        overflow-y: auto;
+        border-radius: 24px;
+        background: #ffffff;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+    }
+
+    .modal-close {
+        width: 34px;
+        height: 34px;
+        position: absolute;
+        top: 13px;
+        right: 13px;
+        border: 0;
+        border-radius: 50%;
+        background: #f5f5f5;
+        color: #777777;
+        font-size: 21px;
+        cursor: pointer;
+    }
+
+    .phone-icon {
+        font-size: 42px;
+    }
+
+    .phone-modal h2 {
+        margin: 11px 0 7px;
+        color: #222222;
+        font-size: 21px;
+    }
+
+    .modal-description {
+        margin: 0 0 20px;
+        color: #777777;
+        font-size: 12px;
+        line-height: 1.65;
+    }
+
+    .modal-description strong {
+        color: #ff1493;
+    }
+
+    .phone-input {
+        width: 100%;
+        height: 54px;
+        padding: 0 15px;
+        border: 2px solid #eeeeee;
+        border-radius: 14px;
+        outline: none;
+        font-size: 18px;
+        text-align: center;
+        letter-spacing: 1px;
+    }
+
+    .phone-input:focus {
+        border-color: #ff1493;
+    }
+
+    .member-check-button,
+    .member-continue-button,
+    .skip-button {
+        width: 100%;
+        height: 50px;
+        margin-top: 11px;
+        border-radius: 25px;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    .member-check-button {
+        border: 0;
+        background: #ff1493;
+        color: #ffffff;
+    }
+
+    .member-check-button:disabled,
+    .member-continue-button:disabled,
+    .skip-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .member-message {
+        margin: 13px 0 0;
+        color: #f04452;
+        font-size: 12px;
+    }
+
+    .member-message.success {
+        color: #ff1493;
+    }
+
+    .member-result {
+        margin-top: 15px;
+        padding: 14px;
+        border-radius: 14px;
+        background: #fff3f9;
+    }
+
+    .member-result > div {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 9px;
+        color: #666666;
+        font-size: 12px;
+    }
+
+    .member-result > div:last-child {
+        margin-bottom: 0;
+    }
+
+    .member-result strong {
+        color: #333333;
+    }
+
+    .member-result .earned-point {
+        color: #ff1493;
+    }
+
+    .member-continue-button {
+        border: 0;
+        background: #ff1493;
+        color: #ffffff;
+    }
+
+    .skip-button {
+        border: 1px solid #dddddd;
+        background: #ffffff;
+        color: #666666;
     }
 </style>
