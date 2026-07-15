@@ -102,7 +102,7 @@
 
 <style scoped="scoped">
     .cup-page {
-        width: min(96%, 540px);
+        width: 100%;
         min-height: 100vh;
         margin: 0 auto;
         padding: 0 14px 24px;

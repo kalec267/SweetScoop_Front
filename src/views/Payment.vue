@@ -15,7 +15,7 @@
         coffee: []
     });
 
-    const paymentMethod = ref("CARD");
+    const paymentMethod = ref(null);
     const paying = ref(false);
 
     const orderTypeName = computed(() => {
@@ -45,6 +45,32 @@
         ) || 0;
 
         return (iceCreamPrice + mochiTotalPrice.value + coffeeTotalPrice.value);
+    });
+
+    const orderName = computed(() => {
+        const names = [];
+
+        if (orderData.value.iceCream) {
+            names.push(orderData.value.iceCream.sizeName || "아이스크림");
+        }
+
+        if (
+            orderData.value.mochi
+                ?.length > 0
+        ) {
+            names.push(`아이스모찌 ${orderData.value.mochi.length}개`);
+        }
+
+        if (
+            orderData.value.coffee
+                ?.length > 0
+        ) {
+            names.push(`커피 ${orderData.value.coffee.length}개`);
+        }
+
+        return names.length > 0
+            ? names.join(", ")
+            : "SweetScoop 주문";
     });
 
     const hasIceCream = computed(() => {
@@ -90,6 +116,10 @@
     const goHome = () => {
         sessionStorage.removeItem("orderData");
         router.push("/");
+    };
+
+    const selectPaymentMethod = (method) => {
+        paymentMethod.value = method;
     };
 
     const createOrderRequest = () => {
@@ -145,44 +175,96 @@
     };
 
     const pay = async () => {
-        if (paying.value) {
-            return;
+    if (paying.value) {
+        return;
+    }
+
+    if (!paymentMethod.value) {
+        alert("결제 수단을 선택해주세요.");
+        return;
+    }
+
+    if (totalPrice.value <= 0) {
+        alert("결제 금액을 확인해주세요.");
+        return;
+    }
+
+    if (typeof window.TossPayments !== "function") {
+        alert("결제 모듈을 불러오지 못했습니다.");
+        return;
+    }
+
+    paying.value = true;
+
+    try {
+        const orderRequest = {
+            ...createOrderRequest(),
+            status: "PAYMENT_PENDING"
+        };
+
+        const orderResponse = await api.post(
+            "/api/order",
+            orderRequest
+        );
+
+        const realOrderId =
+            orderResponse.data.orderId;
+
+        if (!realOrderId) {
+            throw new Error(
+                "생성된 주문번호를 받지 못했습니다."
+            );
         }
 
-        if (totalPrice.value <= 0) {
-            alert("결제 금액을 확인해주세요.");
-            return;
-        }
+        const tossOrderId =
+            `SWEETSCOOP-${realOrderId}-${Date.now()}`;
 
-        paying.value = true;
+        const paymentData = {
+            orderData: orderData.value,
+            orderRequest,
+            realOrderId,
+            tossOrderId,
+            paymentMethod: paymentMethod.value,
+            amount: totalPrice.value,
+            status: "READY"
+        };
 
-        try {
-            const orderRequest = createOrderRequest();
+        sessionStorage.setItem(
+            "paymentData",
+            JSON.stringify(paymentData)
+        );
 
-            console.log("서버 전송 주문 JSON:", orderRequest);
+        const tossPayments = window.TossPayments(
+            "test_ck_GjLJoQ1aVZp0Bbwb0yl58w6KYe2R"
+        );
 
-            /*
-         * 주문 API 연결
-         */
-            await api.post("/api/order", orderRequest);
+        await tossPayments.requestPayment(
+            paymentMethod.value,
+            {
+                amount: totalPrice.value,
+                orderId: tossOrderId,
+                orderName: orderName.value,
 
-            alert("결제가 완료되었습니다.");
+                successUrl:
+                    `${window.location.origin}` +
+                    `/payment/success?realOrderId=${realOrderId}`,
 
-            sessionStorage.removeItem("orderData");
+                failUrl:
+                    `${window.location.origin}/payment`
+            }
+        );
+    } catch (error) {
+        console.error("결제 준비 실패:", error);
 
-            router.push("/");
-        } catch (error) {
-            console.error("결제 처리 실패:", error);
-
-            const message = error.response
-                ?.data
-                    ?.message || "결제 처리 중 오류가 발생했습니다.";
-
-            alert(message);
-        } finally {
-            paying.value = false;
-        }
-    };
+        alert(
+            error.response?.data?.message ||
+            error.message ||
+            "결제 준비 중 오류가 발생했습니다."
+        );
+    } finally {
+        paying.value = false;
+    }
+};
 
     onMounted(loadOrderData);
 </script>
@@ -268,10 +350,6 @@
 
                         <h4>{{ flavor.name }}</h4>
 
-                        <span>
-                            선택 완료
-                        </span>
-
                     </div>
 
                 </article>
@@ -299,13 +377,6 @@
                         {{ item.name }}
                     </p>
 
-                    <span>
-                        {{
-                            Number(
-                                item.price || 0
-                            ).toLocaleString()
-                        }}원
-                    </span>
                 </article>
             </div>
         </section>
@@ -330,43 +401,50 @@
                     <p>
                         {{ item.name }}
                     </p>
-
-                    <span>
-                        {{
-                            Number(
-                                item.price || 0
-                            ).toLocaleString()
-                        }}원
-                    </span>
                 </article>
             </div>
         </section>
 
-        <!-- 결제 수단 -->
-        <section class="payment-method-section">
-            <h2>결제 수단</h2>
+        <section class="method-section">
+            <h3>결제 수단</h3>
 
-            <div class="payment-method-list">
+            <div class="method-buttons">
                 <button
                     type="button"
+                    class="method-button card"
                     :class="{
-                        selected:
-                            paymentMethod === 'CARD'
-                    }"
-                    @click="paymentMethod = 'CARD'">
+                selected: paymentMethod === '카드'
+            }"
+                    :disabled="paying"
+                    @click="selectPaymentMethod('카드')">
                     <span class="method-icon">💳</span>
-                    카드
+
+                    <span class="method-name">
+                        신용카드
+                    </span>
+
+                    <small>
+                        신용카드 · 삼성페이
+                    </small>
                 </button>
 
                 <button
                     type="button"
+                    class="method-button toss"
                     :class="{
-                        selected:
-                            paymentMethod === 'CASH'
-                    }"
-                    @click="paymentMethod = 'CASH'">
-                    <span class="method-icon">💵</span>
-                    현금
+                selected: paymentMethod === '간편결제'
+            }"
+                    :disabled="paying"
+                    @click="selectPaymentMethod('간편결제')">
+                    <span class="toss-icon">TOSS</span>
+
+                    <span class="method-name">
+                        간편결제
+                    </span>
+
+                    <small>
+                        토스페이 · 간편결제
+                    </small>
                 </button>
             </div>
         </section>
@@ -390,12 +468,18 @@
                 </strong>
             </div>
 
-            <button type="button" class="payment-button" :disabled="paying" @click="pay">
+            <button
+                type="button"
+                class="payment-button"
+                :disabled="paying || !paymentMethod"
+                @click="pay">
                 {{
-                    paying
-                        ? "결제 처리 중..."
-                        : "결제하기"
-                }}
+        paying
+            ? "결제창 실행 중..."
+            : paymentMethod
+                ? `${paymentMethod}로 결제하기`
+                : "결제 수단을 선택해주세요"
+    }}
             </button>
         </footer>
     </main>
@@ -417,7 +501,7 @@
     }
 
     .payment-page {
-        width: min(100%, 540px);
+        width: 100%;
         min-height: 100vh;
         margin: 0 auto;
         padding: 0 16px 145px;
@@ -619,6 +703,7 @@
         padding: 13px;
         border-radius: 13px;
         background: #f8f8f8;
+        text-align: left;
     }
 
     .json-box summary {
@@ -641,7 +726,7 @@
     /* 하단 결제 */
 
     .payment-footer {
-        width: min(100%, 540px);
+        width: 100%;
         position: fixed;
         left: 50%;
         bottom: 0;
@@ -699,5 +784,98 @@
         color: #ff1493;
         font-weight: bold;
         font-size: 14px;
+    }
+    .method-section h3 {
+        margin: 0 0 13px;
+        color: #222222;
+        font-size: 16px;
+    }
+
+    .method-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .method-button {
+        min-height: 170px;
+        padding: 20px 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #eeeeee;
+        border-radius: 20px;
+        background: #ffffff;
+        cursor: pointer;
+        transition: transform 0.2s, border-color 0.2s, background 0.2s;
+    }
+
+    .method-button:hover {
+        transform: translateY(-4px);
+        border-color: #ff8fc8;
+        background: #fff8fc;
+    }
+
+    .method-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .method-icon {
+        margin-bottom: 15px;
+        font-size: 42px;
+    }
+
+    .toss-icon {
+        width: 66px;
+        height: 66px;
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border-radius: 50%;
+        background: #3182f6;
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 900;
+    }
+
+    .method-name {
+        color: #222222;
+        font-size: 15px;
+        font-weight: 800;
+    }
+
+    .method-button small {
+        margin-top: 7px;
+        color: #999999;
+        font-size: 10px;
+    }
+
+    .method-button.toss .method-name {
+        color: #3182f6;
+    }
+
+    .method-button.selected {
+        border-color: #ff1493;
+        background: #fff2f8;
+        box-shadow: 0 6px 18px rgba(255, 20, 147, 0.14);
+    }
+
+    .method-button.card.selected .method-name {
+        color: #ff1493;
+    }
+
+    .method-button.toss.selected {
+        border-color: #3182f6;
+        background: #f2f7ff;
+    }
+
+    .payment-button:disabled {
+        background: #cccccc;
+        box-shadow: none;
+        cursor: not-allowed;
     }
 </style>
