@@ -47,13 +47,7 @@ router.beforeEach((to, from, next) => {
     return next('/login');
   }
 
-  // 2. 권한 제한이 있는 페이지인데 로그인한 유저의 Role과 맞지 않는 경우
-  if (to.meta.role && to.meta.role !== userRole) {
-    alert('해당 메뉴에 접근 권한이 없습니다.');
-    return next(userRole === 'HQ' ? '/dashboard' : '/branch/dashboard');
-  }
-
-  // 3. 이미 로그인했는데 로그인 페이지로 가려고 하는 경우 -> 대시보드로 자동 리다이렉트
+  // 2. 이미 로그인했는데 로그인 페이지로 가려고 하는 경우 -> 대시보드로 자동 리다이렉트
   if (to.path === '/login' && isAuthenticated) {
     return next(userRole === 'HQ' ? '/dashboard' : '/branch/dashboard');
   }

@@ -281,6 +281,9 @@ const setPage = (page) => {
 const trackDelivery = (id) => alert(`#REQ-${id} 운송 배송 추적 모달 실행`);
 const viewDetail = (id) => alert(`#REQ-${id} 상세 영수증/명세서 확인`);
 const goToOrderRequestPage = () => router.push('/order-request');
+const openOrderModal = () => {
+  isOrderModalOpen.value = true; // 클릭 시 조건 없이 즉시 모달 오픈!
+};
 
 // 시안 배지 맵핑 필터 클래스 유틸리티
 const getStatusBadgeClass = (status) => {

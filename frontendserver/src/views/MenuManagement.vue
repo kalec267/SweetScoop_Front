@@ -26,7 +26,7 @@
           <tr v-for="menu in paginatedMenus" :key="menu.id">
             <td>#MENU-{{ menu.id }}</td>
             <td><span class="category-tag">{{ getCategoryName(menu.categoryId) }}</span></td>
-            <td>물류 ID: {{ menu.itemId }}</td>
+            <td class="item-id-cell"> 물류 ID: {{ menu.itemId || menu.item_id || menu.item_Id || '미연동' }}</td>
             <td class="menu-name">{{ menu.name }}</td>
             <td>
               <img :src="menu.menuImg" alt="메뉴 이미지" class="menu-thumb" v-if="menu.menuImg" />
@@ -240,7 +240,17 @@ const openCreateModal = () => {
 const openEditModal = (menu) => {
   isEditMode.value = true;
   selectedMenuId.value = menu.id;
-  menuForm.value = { categoryId: menu.categoryId, itemId: menu.itemId, name: menu.name, menuImg: menu.menuImg };
+
+  // 💡 백엔드가 주는 JSON 키값 중 존재하는 것을 알아서 선택합니다.
+  const resolvedItemId = menu.itemId || menu.item_id || menu.item_Id || '';
+
+  menuForm.value = {
+    categoryId: menu.categoryId ? Number(menu.categoryId) : 1, 
+    itemId: resolvedItemId, 
+    name: menu.name || '',
+    menuImg: menu.menuImg || ''
+  };
+
   isModalOpen.value = true;
 };
   
@@ -276,6 +286,7 @@ onMounted(fetchMenus);
 table { width: 100%; border-collapse: collapse; }
 th { background: #f8fafc; padding: 12px; font-size: 13px; color: #64748b; text-align: left; border-bottom: 1px solid #edf2f7; }
 td { padding: 14px 12px; font-size: 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.item-id-cell { vertical-align: middle; /* 테이블 셀 기준 세로 가운데 정렬 */font-weight: 500;color: #334155; }
 .menu-name { font-weight: 600; color: #1e293b; }
 .menu-thumb { width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0; }
 .category-tag { background: #f5f3ff; color: #6f42c1; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }

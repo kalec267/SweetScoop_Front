@@ -109,7 +109,6 @@ const orderForm = ref({ itemId: 1, quantity: 1 });
 // 1. 백엔드로부터 해당 지점의 실시간 재고 목록 가져오기
 const fetchBranchInventory = async () => {
   try {
-    // 💡 주소를 'api/admin/branches' 구조로 동기화합니다.
     const res = await axios.get(`http://localhost:8888/api/admin/branches/${branchId.value}/inventory`);
     
     branchInventory.value = res.data.map(inv => ({
@@ -128,12 +127,27 @@ const fetchBranchInventory = async () => {
   }
 };
 
-// 2. 본사 신청(발주) 내역 백엔드에서 조회해오기 (주소 구조 일치화)
+// 2. 본사 신청(발주) 내역 백엔드에서 조회해오기 (수량 필드명 requestQuantity로 수정)
 const fetchMyRequests = async () => {
   try {
-    // 💡 백엔드 설정에 따라 /orders 또는 /order 로 맵핑 주소를 테스트해 보세요.
     const res = await axios.get(`http://localhost:8888/api/admin/branches/${branchId.value}/orders`);
-    myRequests.value = res.data; 
+    
+    myRequests.value = res.data.map(order => {
+      // 안전하게 날짜 포맷팅 (YYYY.MM.DD)
+      const rawDate = order.requestDate || order.regDate || order.createdDate || '';
+      const formattedDate = rawDate ? rawDate.substring(0, 10).replace(/-/g, '.') : '';
+
+      return {
+        id: order.id,
+        menuName: order.item ? order.item.itemName : (order.itemName || '신청 물품'),
+        // 💡 백엔드에서 내려준 실제 수량 필드인 requestQuantity로 변경합니다!
+        quantity: order.requestQuantity || order.quantity || 0,
+        requestDate: formattedDate,
+        status: order.status || order.orderStatus || '대기 중'
+      };
+    });
+
+    console.log("[디버그] 변환 후 발주 내역 데이터:", myRequests.value);
   } catch (error) {
     console.warn("발주 신청 내역을 불러오는데 실패했습니다. 기본 샘플 데이터를 노출합니다.");
     myRequests.value = [
@@ -144,7 +158,7 @@ const fetchMyRequests = async () => {
   }
 };
 
-// 3. 본사로 발주(재고 신청) 등록 처리 (POST) - 이미 성공한 경로로 유지!
+// 3. 본사로 발주(재고 신청) 등록 처리 (POST)
 const submitOrder = async () => {
   try {
     const payload = {
@@ -153,12 +167,33 @@ const submitOrder = async () => {
       quantity: orderForm.value.quantity
     };
 
-    // 💡 이미 SUCCESS가 검증된 안전한 주소입니다!
+    // 본사로 발주 신청 전송
     await axios.post('http://localhost:8888/api/admin/branches/orders', payload);
     
     alert("본사로 재고 신청이 안전하게 전달되었습니다.");
     closeOrderModal();
     
+    // 💡 [화면 실시간 반영 강화] 
+    // 선택한 아이템의 한글 이름을 찾아 가공합니다.
+    const selectedItem = branchInventory.value.find(item => item.itemId === orderForm.value.itemId);
+    const itemName = selectedItem ? selectedItem.itemName : '신청 물품';
+
+    // 오늘 날짜 생성 (YYYY.MM.DD)
+    const today = new Date();
+    const formattedDate = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
+
+    // 화면 목록 맨 위에 새 요청 정보를 규격에 맞춰 즉시 꽂아넣습니다!
+    const newRequest = {
+      id: myRequests.value.length > 0 ? Math.max(...myRequests.value.map(o => o.id)) + 1 : 1,
+      menuName: itemName,
+      quantity: orderForm.value.quantity, // 입력된 수량을 그대로 사용
+      requestDate: formattedDate,
+      status: '대기 중'
+    };
+    
+    myRequests.value.unshift(newRequest); // 최신 발주 최상단 배치
+    
+    // DB의 실시간 재고와 발주 내역을 다시 한 번 최신화합니다.
     fetchBranchInventory(); 
     fetchMyRequests();      
   } catch (error) {
