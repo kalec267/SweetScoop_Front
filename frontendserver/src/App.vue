@@ -1,45 +1,57 @@
 <template>
-  <div class="app-layout">
-    <!-- 고정 좌측 사이드바 -->
-    <Sidebar />
+  <div class="admin-layout">
     
-    <!-- 우측 메인 콘텐츠 영역 -->
-    <div class="main-content">
-      <Header />
-      <main class="page-body">
+    <!-- 💡 로그인 페이지가 아닐 때만 사이드바를 노출합니다 -->
+    <Sidebar v-if="showNavigation" />
+
+    <div class="main-container" :class="{ 'no-sidebar': !showNavigation }">
+      <!-- 💡 로그인 페이지가 아닐 때만 상단 헤더를 노출합니다 -->
+      <Header v-if="showNavigation" />
+      
+      <main class="content-router-view">
         <router-view />
       </main>
     </div>
+
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 import Sidebar from './components/Sidebar.vue';
 import Header from './components/Header.vue';
+
+const route = useRoute();
+
+// 현재 경로가 로그인(/login)이 아니면 네비게이션 요소들을 노출합니다.
+const showNavigation = computed(() => route.path !== '/login');
 </script>
 
 <style>
-/* 전역 스케일 가이드 레이아웃 */
-body {
-  margin: 0;
-  background-color: #f8fafc;
-}
-.app-layout {
-  display: flex;          /* 👈 핵심 1: 사이드바와 메인을 가로로 나란히 배치 */
+.admin-layout {
+  display: flex;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
 }
-.main-content {
-  flex: 1;                /* 👈 핵심 2: 남은 가로 공간을 메인 영역이 100% 꽉 채우도록 설정 */
+
+.main-container {
+  flex: 1;
   display: flex;
-  flex-direction: column; /* 헤더가 위, router-view가 아래로 가도록 설정 */
+  flex-direction: column;
   height: 100vh;
-  overflow-y: auto;       /* 콘텐츠가 길어지면 메인 영역 안에서만 스크롤되도록 설정 */
+  overflow-y: auto;
   background-color: #f8fafc;
 }
-.page-body {
+
+/* 로그인 화면 전용 (사이드바가 없을 때 메인 영역이 100%를 쓰도록 대응) */
+.main-container.no-sidebar {
+  height: 100vh;
+  background-color: transparent;
+}
+
+.content-router-view {
   flex: 1;
-  padding: 0;
 }
 </style>
