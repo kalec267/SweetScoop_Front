@@ -1,3 +1,4 @@
+<!-- src/views/OrderComplete.vue -->
 <template>
   <div class="complete-container" v-if="receipt">
     <div class="receipt-card">
@@ -14,11 +15,10 @@
         <div class="detail-section">
           <div class="menu-list">
             <div v-for="(item, index) in receipt.items" :key="index" class="row">
-              <span>{{ item.menuName }} × {{ item.quantity }}</span>
-              <span>{{ (item.price * item.quantity).toLocaleString() }}원</span>
+              <span>{{ item.menuName }} × {{ item.quantity }} <br></span>
+              <span> {{ (item.price * item.quantity).toLocaleString() }}원</span>
             </div>
           </div>
-
         </div>
         <div class="info-row">
           <span class="label">결제 수단</span>
@@ -49,18 +49,30 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { PrinterService } from '@/utils/printer';
 
 const router = useRouter();
+const route = useRoute();
 const receipt = ref(null);
-const countdown = ref(7); 
+const countdown = ref(120); 
 let timerId = null;
 
 onMounted(() => {
-  if (history.state && history.state.receipt) {
-    receipt.value = history.state.receipt;
-    PrinterService.printReceipt(receipt.value);
+  // query로 전달받은 데이터 파싱
+  if (route.query.data) {
+    try {
+      const parsedData = JSON.parse(route.query.data);
+      // 필수 데이터 유효성 검사 추가
+      if (parsedData && parsedData.items) {
+        receipt.value = parsedData;
+        // 데이터가 유효한 경우에만 프린트 호출
+        PrinterService.printReceipt(receipt.value);
+      }
+    } catch (e) {
+      console.error("데이터 파싱 실패", e);
+      router.push('/');
+    }
 
     timerId = setInterval(() => {
       countdown.value--;
@@ -80,65 +92,21 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* 전체 컨테이너 */
-.complete-container { 
-  max-width: 450px; 
-  margin: 50px auto; 
-  padding: 20px;
-  text-align: center; 
-  font-family: 'Pretendard', sans-serif; /* 폰트가 있다면 적용 */
-}
-
-/* 카드 디자인 */
-.receipt-card {
-  background: white;
-  padding: 40px 30px;
-  border-radius: 24px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-  margin-bottom: 20px;
-}
-
+/* 기존 스타일 그대로 유지 */
+.complete-container { max-width: 450px; margin: 50px auto; padding: 20px; text-align: center; font-family: 'Pretendard', sans-serif; }
+.receipt-card { background: white; padding: 40px 30px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-bottom: 20px; }
 .success-icon { font-size: 60px; margin-bottom: 10px; }
 h1 { font-size: 24px; margin-bottom: 10px; color: #1a1a1a; }
 .guide-text { color: #666; font-size: 14px; margin-bottom: 30px; }
-
-/* 대기번호 박스 */
-.waiting-box { 
-  background: #f0f7ff; 
-  color: #3182f6; 
-  padding: 20px; 
-  border-radius: 20px; 
-  margin-bottom: 30px; 
-}
+.waiting-box { background: #f0f7ff; color: #3182f6; padding: 20px; border-radius: 20px; margin-bottom: 30px; }
 .waiting-box p { font-size: 14px; margin: 0; font-weight: 600; }
 .waiting-box .number { font-size: 64px; font-weight: 800; margin-top: 5px; line-height: 1; }
-
-/* 상세 정보 행 */
-.info-container {
-  border-top: 1px dashed #e2e8f0;
-  padding-top: 20px;
-}
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  font-size: 14px;
-}
+.info-container { border-top: 1px dashed #e2e8f0; padding-top: 20px; }
+.info-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
 .label { color: #718096; }
 .value { color: #2d3748; font-weight: 600; }
 .amount { color: #3182f6; font-size: 16px; }
-
-/* 타이머 */
 .timer { color: #a0aec0; font-size: 14px; font-weight: bold; }
-
-.menu-list {
-  margin: 15px 0;
-  border-bottom: 1px dashed #e5e7eb;
-  padding-bottom: 10px;
-}
-.menu-list .row {
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #555;
-}
+.menu-list { margin: 15px 0; border-bottom: 1px dashed #e5e7eb; padding-bottom: 10px; }
+.menu-list .row { margin-bottom: 8px; font-size: 14px; color: #555; }
 </style>

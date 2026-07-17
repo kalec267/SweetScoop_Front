@@ -4,7 +4,7 @@ import Home from "../views/Home.vue";
 import IceCreamSize from "../views/IceCreamSize.vue";
 import CupSelect from "../views/CupSelect.vue";
 import Menu from "../views/Menu.vue";
-// Payment는 아래 라우트 설정에서 직접 import 하므로 위에서 제거해도 됩니다.
+import BranchManagement from "../views/admin/BranchManagement.vue";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -43,8 +43,13 @@ const router = createRouter({
       name: "OrderComplete",
       component: () => import("@/views/OrderComplete.vue"),
     },
+    {
+        path: "/admin/branches",
+        name: "BranchManagement",
+        component: BranchManagement
+    }
+    
   ],
 });
 
-// 모든 설정이 끝난 후 아래에서 내보내야 합니다.
 export default router;

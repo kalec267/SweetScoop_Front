@@ -71,7 +71,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'refresh-list'])
 
 const branchData = ref(null)
-const API_URL = 'http://localhost:8080/api/admin/branches'
+const API_URL = '/api/admin/branches'
 
 // 💡 부모가 준 branchId가 바뀔 때마다 자동으로 백엔드 데이터 실시간 동적 로드
 watch(() => props.branchId, (newId) => {

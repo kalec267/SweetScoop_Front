@@ -84,7 +84,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import BranchDetail from './BranchDetail.vue' // 💡 자식 컴포넌트 불러오기
+import BranchDetail from "../../components/admin/BranchDetail.vue"; // 💡 자식 컴포넌트 불러오기
 
 // 상태 정의
 const branches = ref([])
@@ -97,7 +97,7 @@ const editForm = ref({ branchName: '', location: '' })
 const selectedBranchId = ref(null)
 const detailComponentRef = ref(null)
 
-const API_URL = 'http://localhost:8080/api/admin/branches'
+const API_URL = '/api/admin/branches'
 
 // 1. 전체 목록 가져오기 (GET)
 const fetchBranches = async () => {

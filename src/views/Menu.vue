@@ -1,7 +1,6 @@
 <script setup="setup">
     import {ref, computed, onMounted} from "vue";
     import {useRoute, useRouter} from "vue-router";
-
     import api from "../api/axios";
     import MenuCard from "../components/MenuCard.vue";
 
@@ -32,6 +31,15 @@
         3: [] // 커피
     });
 
+    const coffeeOptions = ref([]); // DB에서 가져온 커피 옵션 목록
+    const coffeeSizes = ref([]); // Regular / Large 사이즈 목록
+    const showOptionModal = ref(false); // 옵션창 표시 여부
+    const optionTargetMenu = ref(null); // 현재 옵션을 선택 중인 커피
+    const selectedOptionIds = ref([]); // 선택한 옵션 ID 목록
+    const selectedCoffeeSizeId = ref(null); // 선택한 커피 SIZE.id
+    const loadingOptions = ref(false); // 옵션 조회 중 표시
+    const loadingCoffeeSizes = ref(false); // 커피 사이즈 조회 중 표시
+
     const selectedMenus = computed({
         get() {
             return selectedMenusByCategory.value[selectedCategory.value];
@@ -42,6 +50,191 @@
         }
     });
     const selectedCategory = ref(categoryId);
+
+    // 키오스크 주문 장바구니
+    const cartItems = ref([]);
+    const showCart = ref(false);
+
+    const cartCount = computed(() =>
+        cartItems.value.reduce(
+            (sum, item) => sum + (Number(item.quantity) || 1),
+            0
+        )
+    );
+
+    const cartTotalPrice = computed(() =>
+        cartItems.value.reduce(
+            (sum, item) =>
+                sum +
+                (Number(item.unitPrice ?? item.totalPrice) || 0) *
+                (Number(item.quantity) || 1),
+            0
+        )
+    );
+
+    const loadCart = () => {
+        try {
+            const saved = sessionStorage.getItem("cartData");
+            if (!saved) {
+                cartItems.value = [];
+                return;
+            }
+
+            const parsed = JSON.parse(saved);
+            cartItems.value = Array.isArray(parsed.items) ? parsed.items : [];
+        } catch (error) {
+            console.error("장바구니 불러오기 실패:", error);
+            cartItems.value = [];
+            sessionStorage.removeItem("cartData");
+        }
+    };
+
+    const saveCart = () => {
+        sessionStorage.setItem(
+            "cartData",
+            JSON.stringify({
+                orderType: orderType || "TAKEOUT",
+                customerId: null,
+                branchId: 1,
+                kioskId: 1,
+                items: cartItems.value
+            })
+        );
+    };
+
+    const restoreSavedSelections = () => {
+        /*
+         * 장바구니에 이미 담긴 상품은 "현재 선택 중"인 상품이 아니다.
+         * cartData가 존재하면 이전 선택 상태를 복원하지 않고 빈 상태로 시작한다.
+         */
+        const savedCart = sessionStorage.getItem("cartData");
+
+        if (savedCart) {
+            try {
+                const parsedCart = JSON.parse(savedCart);
+                if (Array.isArray(parsedCart.items) && parsedCart.items.length > 0) {
+                    selectedMenusByCategory.value = { 1: [], 2: [], 3: [] };
+                    sessionStorage.removeItem("orderData");
+                    return;
+                }
+            } catch (error) {
+                console.error("장바구니 복원 확인 실패:", error);
+            }
+        }
+
+        const savedOrder = sessionStorage.getItem("orderData");
+
+        if (!savedOrder) {
+            return;
+        }
+
+        try {
+            const savedData = JSON.parse(savedOrder);
+
+            /*
+         * 이전 아이스크림 맛 복원
+         */
+            /*
+ * 아이스크림 화면이 아닐 때만
+ * 이전 아이스크림 선택을 복원
+ *
+ * sizeId가 있다는 것은
+ * 새 사이즈를 선택하고 맛 선택 화면으로 왔다는 의미
+ */
+if (
+    !sizeId &&
+    savedData.iceCream?.flavors?.length > 0
+) {
+    selectedMenusByCategory.value[1] =
+        savedData.iceCream.flavors.map(
+            flavor => ({
+                id: Number(
+                    flavor.menuId ||
+                    flavor.id
+                ),
+
+                menuId: Number(
+                    flavor.menuId ||
+                    flavor.id
+                ),
+
+                categoryId: 1,
+                name: flavor.name,
+                menuImg: flavor.menuImg
+            })
+        );
+}
+
+            /*
+         * 이전 아이스모찌 복원
+         */
+            if (
+                savedData.mochi
+                    ?.length > 0
+            ) {
+                selectedMenusByCategory.value[2] = savedData
+                    .mochi
+                    .map(item => ({
+                        id: Number(item.menuId || item.id),
+
+                        menuId: Number(item.menuId || item.id),
+
+                        categoryId: 2,
+                        name: item.name,
+                        menuImg: item.menuImg,
+
+                        price: Number(item.price) || 0,
+
+                        totalPrice: Number(item.totalPrice) || Number(item.price) || 0,
+
+                        options: item.options || []
+                    }));
+            }
+
+            /*
+         * 이전 커피와 옵션 복원
+         */
+            if (
+                savedData.coffee
+                    ?.length > 0
+            ) {
+                selectedMenusByCategory.value[3] = savedData
+                    .coffee
+                    .map(item => ({
+                        id: Number(item.menuId || item.id),
+
+                        menuId: Number(item.menuId || item.id),
+
+                        categoryId: 3,
+                        name: item.name,
+                        menuImg: item.menuImg,
+
+                        price: Number(item.price) || 0,
+
+                        sizeId: item.sizeId != null
+                            ? Number(item.sizeId)
+                            : null,
+                        sizeName: item.sizeName || null,
+                        sizeAdditionalPrice:
+                            Number(item.sizeAdditionalPrice) || 0,
+
+                        optionPrice: Number(item.optionPrice) || 0,
+
+                        totalPrice: Number(item.totalPrice) || (
+                            Number(item.price || 0) +
+                            Number(item.sizeAdditionalPrice || 0) +
+                            Number(item.optionPrice || 0)
+                        ),
+
+                        options: item.options || []
+                    }));
+            }
+
+            console.log("복원된 선택 목록:", selectedMenusByCategory.value);
+        } catch (error) {
+            console.error("이전 주문 선택 복원 실패:", error);
+        }
+    };
 
     const loading = ref(false);
 
@@ -140,7 +333,14 @@
         try {
             const response = await api.get(`/api/menu/category/${categoryId}`);
 
-            menus.value = response.data;
+            const menuList = Array.isArray(response.data) ? response.data : [];
+
+            menus.value = menuList.map(menu => ({
+                ...menu,
+                id: Number(menu.id),
+                categoryId: Number(menu.categoryId),
+                price: Number(menu.price) || 0
+            }));
         } catch (error) {
             console.error("메뉴 조회 실패:", error);
             menus.value = [];
@@ -153,9 +353,11 @@
  * 카테고리 변경
  */
     const changeCategory = async (categoryId) => {
-
-        // 아이스크림 탭은 사이즈 선택 화면으로 이동
         if (categoryId === 1) {
+            /*
+         * 현재 모찌·커피 선택 내용을 먼저 저장
+         */
+            saveOrderData();
 
             router.push({path: "/size", query: {
                     orderType
@@ -164,10 +366,7 @@
             return;
         }
 
-        // 아이스모찌 / 커피는 현재 화면에서 메뉴판만 변경
         selectedCategory.value = categoryId;
-
-        selectedMenus.value = [];
 
         await loadMenu(categoryId);
     };
@@ -238,107 +437,223 @@
  * 처음 화면
  */
     const goHome = () => {
+        const hasOrder =
+            cartItems.value.length > 0 ||
+            selectedMenusByCategory.value[1].length > 0 ||
+            selectedMenusByCategory.value[2].length > 0 ||
+            selectedMenusByCategory.value[3].length > 0;
+
+        if (hasOrder && !window.confirm("현재 주문을 취소하고 처음 화면으로 이동할까요?")) {
+            return;
+        }
+
+        sessionStorage.removeItem("orderData");
+        sessionStorage.removeItem("cartData");
+        sessionStorage.removeItem("paymentData");
         router.push("/");
     };
 
     /*
  * 선택 완료
  */
-    const goNext = () => {
+    const resetCurrentSelection = () => {
+        selectedMenusByCategory.value[selectedCategory.value] = [];
+        sessionStorage.removeItem("orderData");
+    };
 
-        const iceCreamMenus = selectedMenusByCategory.value[1];
-
-        const mochiMenus = selectedMenusByCategory.value[2];
-
-        const coffeeMenus = selectedMenusByCategory.value[3];
-
-        /*
-     * 아이스크림 주문이 있는 경우
-     * 선택 가능한 맛 개수를 모두 채웠는지 검사
-     */
-        if (sizeId) {
-
+    const addCurrentSelectionToCart = () => {
+        if (selectedCategory.value === 1) {
             const flavorCnt = Number(sizeInfo.value.flavorCnt) || 0;
+            const flavors = selectedMenusByCategory.value[1];
 
-            if (iceCreamMenus.length !== flavorCnt) {
-
+            if (!sizeId || flavorCnt === 0 || flavors.length !== flavorCnt) {
                 alert(`${flavorCnt}개의 아이스크림 맛을 모두 선택해주세요.`);
-
                 return;
             }
 
+            cartItems.value.push({
+                cartItemId: `ICE-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                productType: "ICE_CREAM",
+                name: sizeInfo.value.name || "아이스크림",
+                menuImg: flavors[0]?.menuImg || null,
+                cupId: cupId != null ? Number(cupId) : null,
+                cupName: selectedCup.value?.name || null,
+                sizeId: Number(sizeId),
+                sizeName: sizeInfo.value.name || null,
+                quantity: 1,
+                unitPrice: totalPrice.value,
+                totalPrice: totalPrice.value,
+                menus: flavors.map(menu => ({
+                    menuId: Number(menu.menuId || menu.id),
+                    name: menu.name,
+                    menuImg: menu.menuImg
+                })),
+                options: []
+            });
+        } else {
+            const selected = selectedMenusByCategory.value[selectedCategory.value];
+
+            if (selected.length === 0) {
+                alert("상품을 1개 이상 선택해주세요.");
+                return;
+            }
+
+            selected.forEach(menu => {
+                const isCoffee = selectedCategory.value === 3;
+                const unitPrice = isCoffee
+                    ? Number(menu.unitPrice ?? menu.totalPrice) || 0
+                    : Number(menu.price ?? menu.totalPrice) || 0;
+
+                cartItems.value.push({
+                    cartItemId: `${isCoffee ? "COFFEE" : "MOCHI"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                    productType: isCoffee ? "COFFEE" : "MOCHI",
+                    name: menu.name,
+                    menuImg: menu.menuImg || null,
+                    cupId: null,
+                    sizeId: menu.sizeId != null ? Number(menu.sizeId) : null,
+                    sizeName: menu.sizeName || null,
+                    quantity: 1,
+                    unitPrice,
+                    totalPrice: unitPrice,
+                    menus: [{
+                        menuId: Number(menu.menuId || menu.id),
+                        name: menu.name,
+                        menuImg: menu.menuImg
+                    }],
+                    options: (menu.options || []).map(option => ({
+                        menuOptionId: Number(option.menuOptionId || option.id),
+                        name: option.name,
+                        price: Number(option.price) || 0
+                    }))
+                });
+            });
         }
 
-        /*
-     * 선택한 상품이 하나도 없는 경우
-     */
-        const hasSelectedProduct = iceCreamMenus.length > 0 || mochiMenus.length > 0 || coffeeMenus.length > 0;
+        saveCart();
+        resetCurrentSelection();
+        showCart.value = true;
+    };
 
-        if (!hasSelectedProduct) {
+    const increaseQuantity = (index) => {
+        cartItems.value[index].quantity =
+            (Number(cartItems.value[index].quantity) || 1) + 1;
+        saveCart();
+    };
 
-            alert("상품을 1개 이상 선택해주세요.");
+    const decreaseQuantity = (index) => {
+        const quantity = Number(cartItems.value[index].quantity) || 1;
+        if (quantity <= 1) {
+            removeCartItem(index);
+            return;
+        }
+        cartItems.value[index].quantity = quantity - 1;
+        saveCart();
+    };
 
+    const removeCartItem = (index) => {
+        cartItems.value.splice(index, 1);
+        saveCart();
+    };
+
+    const continueShopping = () => {
+        showCart.value = false;
+        router.push({
+            path: "/size",
+            query: { orderType: orderType || "TAKEOUT" }
+        });
+    };
+
+    const goPayment = () => {
+        if (cartItems.value.length === 0) {
+            alert("장바구니가 비어 있습니다.");
             return;
         }
 
-        const orderData = {
+        saveCart();
 
-            orderType,
-
-            customerId: 1,
-
+        /*
+         * 결제 페이지와 백엔드가 같은 구조를 사용하도록
+         * 장바구니 전체를 orderData.items에 저장한다.
+         */
+        const unifiedOrderData = {
+            orderType: orderType || "TAKEOUT",
+            customerId: null,
             branchId: 1,
-
             kioskId: 1,
 
-            iceCream: sizeId
-                ? {
-                    sizeId,
-
-                    sizeName: sizeInfo.value.name,
-
-                    cupId,
-
-                    cupName: selectedCup.value
-                        ?.name || null,
-
-                    basePrice: Number(sizeInfo.value.price) || 0,
-
-                    additionalPrice: Number(
-                        selectedCup.value
-                            ?.additionalPrice
-                    ) || 0,
-
-                    totalPrice: totalPrice.value,
-
-                    flavors: iceCreamMenus.map(
-                        menu => ({menuId: menu.id, name: menu.name, menuImg: menu.menuImg})
-                    )
-                }
-                : null,
-
-            mochi: mochiMenus.map(menu => ({
-                menuId: menu.id,
-                name: menu.name,
-                menuImg: menu.menuImg,
-                price: Number(menu.price) || 0
+            items: cartItems.value.map(item => ({
+                ...item,
+                quantity: Number(item.quantity) || 1,
+                unitPrice:
+                    Number(item.unitPrice ?? item.totalPrice) || 0,
+                totalPrice:
+                    (Number(item.unitPrice ?? item.totalPrice) || 0) *
+                    (Number(item.quantity) || 1),
+                menus: Array.isArray(item.menus)
+                    ? item.menus
+                    : [],
+                options: Array.isArray(item.options)
+                    ? item.options
+                    : []
             })),
 
-            coffee: coffeeMenus.map(menu => ({
-                menuId: menu.id,
-                name: menu.name,
-                menuImg: menu.menuImg,
-                price: Number(menu.price) || 0
-            }))
-
+            member: null
         };
 
-        sessionStorage.setItem("orderData", JSON.stringify(orderData));
+        sessionStorage.setItem(
+            "orderData",
+            JSON.stringify(unifiedOrderData)
+        );
 
-        console.log("저장된 주문 JSON:", orderData);
+        console.log(
+            "결제 페이지로 전달할 주문 데이터:",
+            unifiedOrderData
+        );
 
         router.push("/payment");
+    };
 
+    const loadCoffeeOptions = async () => {
+        loadingOptions.value = true;
+
+        try {
+            const response = await api.get("/api/menu-options/category/3");
+
+            coffeeOptions.value = response.data;
+        } catch (error) {
+            console.error("커피 옵션 조회 실패:", error);
+
+            coffeeOptions.value = [];
+        } finally {
+            loadingOptions.value = false;
+        }
+    };
+
+    const loadCoffeeSizes = async () => {
+        loadingCoffeeSizes.value = true;
+
+        try {
+            const response = await api.get("/api/size/category/3");
+
+            coffeeSizes.value = Array.isArray(response.data)
+                ? response.data
+                : [];
+
+            const regularSize = coffeeSizes.value.find(
+                size => ["regular", "(r)", "r"].includes(String(size.name || "").trim().toLowerCase())
+            );
+
+            selectedCoffeeSizeId.value =
+                regularSize?.id ??
+                coffeeSizes.value[0]?.id ??
+                null;
+        } catch (error) {
+            console.error("커피 사이즈 조회 실패:", error);
+            coffeeSizes.value = [];
+            selectedCoffeeSizeId.value = null;
+        } finally {
+            loadingCoffeeSizes.value = false;
+        }
     };
 
     const canMoveToPayment = computed(() => {
@@ -355,7 +670,7 @@
             return false;
         }
 
-        if (sizeId) {
+        if (selectedCategory.value === 1 && sizeId) {
 
             const flavorCnt = Number(sizeInfo.value.flavorCnt) || 0;
 
@@ -367,10 +682,337 @@
 
     });
 
+    const handleMenuClick = (menu) => {
+        /*
+         * 커피는 같은 메뉴라도 사이즈와 옵션을 다르게 하여
+         * 여러 잔 추가할 수 있으므로 항상 옵션창을 연다.
+         */
+        if (Number(menu.categoryId) === 3) {
+            openCoffeeOptionModal(menu);
+            return;
+        }
+
+        const index = selectedMenus.value.findIndex(
+            item => Number(item.id) === Number(menu.id)
+        );
+
+        /*
+         * 아이스크림과 아이스모찌는 같은 메뉴를 다시 누르면 제거
+         */
+        if (index !== -1) {
+            removeSelectedMenu(index);
+            saveOrderData();
+            return;
+        }
+
+        addMenuWithoutOption(menu);
+    };
+
+    const addMenuWithoutOption = (menu) => {
+        /*
+     * 아이스크림만 맛 개수 제한
+     */
+        if (selectedCategory.value === 1 && selectedMenus.value.length >= Number(sizeInfo.value.flavorCnt || 0)) {
+            alert(`최대 ${sizeInfo.value.flavorCnt}개의 맛만 선택할 수 있습니다.`);
+
+            return;
+        }
+
+        selectedMenus
+            .value
+            .push({
+                ...menu,
+
+                options: [],
+
+                optionPrice: 0,
+
+                totalPrice: Number(menu.price) || 0
+            });
+
+        saveOrderData();
+    };
+
+    const openCoffeeOptionModal = async (menu) => {
+        optionTargetMenu.value = menu;
+        selectedOptionIds.value = [];
+        selectedCoffeeSizeId.value = null;
+
+        const requests = [];
+
+        if (coffeeOptions.value.length === 0) {
+            requests.push(loadCoffeeOptions());
+        }
+
+        if (coffeeSizes.value.length === 0) {
+            requests.push(loadCoffeeSizes());
+        }
+
+        await Promise.all(requests);
+
+        /*
+         * 이미 사이즈 목록을 불러온 상태라면 Regular를 기본 선택
+         */
+        if (!selectedCoffeeSizeId.value) {
+            const regularSize = coffeeSizes.value.find(
+                size => ["regular", "(r)", "r"].includes(String(size.name || "").trim().toLowerCase())
+            );
+
+            selectedCoffeeSizeId.value =
+                regularSize?.id ??
+                coffeeSizes.value[0]?.id ??
+                null;
+        }
+
+        showOptionModal.value = true;
+    };
+
+    const toggleOption = (optionId) => {
+        const index = selectedOptionIds
+            .value
+            .indexOf(optionId);
+
+        if (index !== -1) {
+            selectedOptionIds
+                .value
+                .splice(index, 1);
+        } else {
+            selectedOptionIds
+                .value
+                .push(optionId);
+        }
+    };
+
+    const isOptionSelected = (optionId) => {
+        return selectedOptionIds
+            .value
+            .includes(optionId);
+    };
+
+    const selectedCoffeeSize = computed(() => {
+        return coffeeSizes.value.find(
+            size => Number(size.id) === Number(selectedCoffeeSizeId.value)
+        ) || null;
+    });
+
+    const coffeeSizeAdditionalPrice = computed(() => {
+        return Number(selectedCoffeeSize.value?.price) || 0;
+    });
+
+    const selectedOptionPrice = computed(() => {
+        return coffeeOptions
+            .value
+            .filter(option => selectedOptionIds.value.includes(option.id))
+            .reduce((sum, option) => sum + (Number(option.price) || 0), 0);
+    });
+
+    const optionTargetTotalPrice = computed(() => {
+        const menuPrice = Number(
+            optionTargetMenu.value
+                ?.price
+        ) || 0;
+
+        return (
+            menuPrice +
+            coffeeSizeAdditionalPrice.value +
+            selectedOptionPrice.value
+        );
+    });
+
+    const confirmCoffeeOption = () => {
+        if (!optionTargetMenu.value) {
+            return;
+        }
+
+        if (!selectedCoffeeSize.value) {
+            alert("커피 사이즈를 선택해주세요.");
+            return;
+        }
+
+        const selectedOptions = coffeeOptions
+            .value
+            .filter(option => selectedOptionIds.value.includes(option.id))
+            .map(option => ({
+                menuOptionId: Number(option.id),
+                name: option.name,
+                price: Number(option.price) || 0
+            }));
+
+        const basePrice =
+            Number(optionTargetMenu.value.price) || 0;
+
+        const sizeAdditionalPrice =
+            Number(selectedCoffeeSize.value.price) || 0;
+
+        const optionPrice = selectedOptions.reduce(
+            (sum, option) => sum + (Number(option.price) || 0),
+            0
+        );
+
+        const coffeeItem = {
+            ...optionTargetMenu.value,
+
+            /*
+             * 같은 커피를 여러 번 담을 수 있도록 선택 인스턴스 ID 부여
+             */
+            selectionId: `COFFEE-${Date.now()}-${Math.random()
+                .toString(36)
+                .slice(2, 8)}`,
+
+            sizeId: Number(selectedCoffeeSize.value.id),
+            sizeName: selectedCoffeeSize.value.name,
+            sizeAdditionalPrice,
+
+            options: selectedOptions,
+            optionPrice,
+
+            /*
+             * 커피 기본가 + 사이즈 추가금 + 옵션 금액
+             */
+            unitPrice:
+                basePrice +
+                sizeAdditionalPrice +
+                optionPrice,
+
+            totalPrice:
+                basePrice +
+                sizeAdditionalPrice +
+                optionPrice
+        };
+
+        selectedMenus.value.push(coffeeItem);
+
+        saveOrderData();
+        closeOptionModal();
+    };
+
+    const closeOptionModal = () => {
+        showOptionModal.value = false;
+
+        optionTargetMenu.value = null;
+
+        selectedOptionIds.value = [];
+        selectedCoffeeSizeId.value = null;
+    };
+
+    const saveOrderData = () => {
+        const savedOrder = sessionStorage.getItem("orderData");
+
+        const orderData = savedOrder
+            ? JSON.parse(savedOrder)
+            : {
+                orderType,
+                customerId: null,
+                branchId: 1,
+                kioskId: 1,
+                iceCream: null,
+                mochi: [],
+                coffee: []
+            };
+
+        /*
+     * 현재 선택한 메뉴들을 카테고리별로 구분
+     */
+        orderData.mochi =
+    selectedMenusByCategory.value[2]
+        .map(item => ({
+            menuId:
+                Number(
+                    item.menuId ||
+                    item.id
+                ),
+
+            name: item.name,
+            menuImg: item.menuImg,
+
+            price:
+                Number(item.price) || 0,
+
+            totalPrice:
+                Number(item.totalPrice) ||
+                Number(item.price) ||
+                0,
+
+            options:
+                item.options || []
+        }));
+
+orderData.coffee =
+    selectedMenusByCategory.value[3]
+        .map(item => ({
+            menuId:
+                Number(
+                    item.menuId ||
+                    item.id
+                ),
+
+            name: item.name,
+            menuImg: item.menuImg,
+
+            price:
+                Number(item.price) || 0,
+
+            sizeId:
+                item.sizeId != null
+                    ? Number(item.sizeId)
+                    : null,
+
+            sizeName:
+                item.sizeName || null,
+
+            sizeAdditionalPrice:
+                Number(item.sizeAdditionalPrice) || 0,
+
+            optionPrice:
+                Number(
+                    item.optionPrice
+                ) || 0,
+
+            totalPrice:
+                Number(item.totalPrice) ||
+                (
+                    Number(item.price || 0) +
+                    Number(item.sizeAdditionalPrice || 0) +
+                    Number(item.optionPrice || 0)
+                ),
+
+            options:
+                item.options || []
+        }));
+
+        sessionStorage.setItem("orderData", JSON.stringify(orderData));
+
+        console.log("저장된 주문 JSON:", orderData);
+    };
+
     onMounted(async () => {
+        loadCart();
+
+        /*
+         * 장바구니에 담긴 상품과 현재 선택 상태를 분리한다.
+         * 이미 장바구니가 있으면 새 선택 화면은 항상 빈 상태로 시작한다.
+         */
+        const savedCart = sessionStorage.getItem("cartData");
+        let hasCartItems = false;
+
+        if (savedCart) {
+            try {
+                const parsedCart = JSON.parse(savedCart);
+                hasCartItems = Array.isArray(parsedCart.items) && parsedCart.items.length > 0;
+            } catch (error) {
+                console.error("장바구니 확인 실패:", error);
+            }
+        }
+
+        if (hasCartItems) {
+            selectedMenusByCategory.value = { 1: [], 2: [], 3: [] };
+            sessionStorage.removeItem("orderData");
+        } else {
+            restoreSavedSelections();
+        }
+
         await loadMenu(categoryId);
 
-        // 아이스크림인 경우에만 사이즈와 컵 정보 조회
         if (categoryId === 1 && sizeId) {
             await Promise.all([loadSize(), loadSelectedCup()]);
         }
@@ -389,8 +1031,8 @@
                 플레이버 선택
             </div>
 
-            <button type="button" class="top-back-button" @click="goBack">
-                이전
+            <button type="button" class="top-home-button" @click="goHome">
+                처음으로
             </button>
         </header>
 
@@ -511,10 +1153,8 @@
                     v-for="menu in menus"
                     :key="menu.id"
                     :menu="menu"
-                    :selected="
-                        isSelected(menu.id)
-                    "
-                    @selectMenu="selectMenu"/>
+                    :selected="isSelected(menu.id)"
+                    @selectMenu="handleMenuClick"/>
             </div>
         </section>
 
@@ -527,7 +1167,7 @@
 
                 <strong v-if="selectedCategory === 1">
                     {{ selectedCount }}
-                    
+
                     {{ sizeInfo.flavorCnt || 0 }}
                 </strong>
 
@@ -582,22 +1222,256 @@
             </button>
         </section>
 
-        <!-- 하단 -->
-        <footer class="bottom-bar">
-            <button type="button" class="bottom-button previous" @click="goBack">
-                <span class="arrow">
-                    ‹
-                </span>
+        <div
+            v-if="showOptionModal"
+            class="option-modal-overlay"
+            @click.self="closeOptionModal">
+            <section class="option-modal">
+                <button type="button" class="option-close-button" @click="closeOptionModal">
+                    ×
+                </button>
 
-                이전
+                <div v-if="optionTargetMenu" class="option-menu-info">
+                    <img :src="optionTargetMenu.menuImg" :alt="optionTargetMenu.name"/>
+
+                    <div>
+                        <span>커피 옵션 선택</span>
+
+                        <h2>
+                            {{ optionTargetMenu.name }}
+                        </h2>
+
+                        <strong>
+                            {{
+                        Number(
+                            optionTargetMenu.price || 0
+                        ).toLocaleString()
+                    }}원
+                        </strong>
+                    </div>
+                </div>
+
+                <p class="option-description">
+                    커피 사이즈를 선택한 뒤 추가 옵션을 선택해주세요. 옵션은 선택하지 않아도 됩니다.
+                </p>
+
+                <section class="coffee-size-section">
+                    <h3>사이즈 선택</h3>
+
+                    <p v-if="loadingCoffeeSizes" class="option-status">
+                        사이즈를 불러오는 중입니다.
+                    </p>
+
+                    <div v-else class="coffee-size-list">
+                        <button
+                            v-for="size in coffeeSizes"
+                            :key="size.id"
+                            type="button"
+                            class="coffee-size-button"
+                            :class="{
+                                selected:
+                                    Number(selectedCoffeeSizeId) === Number(size.id)
+                            }"
+                            @click="selectedCoffeeSizeId = size.id">
+                            <strong>{{ size.name }}</strong>
+
+                            <span>
+                                {{
+                                    Number(size.price) > 0
+                                        ? `+${Number(size.price).toLocaleString()}원`
+                                        : "추가금 없음"
+                                }}
+                            </span>
+                        </button>
+                    </div>
+                </section>
+
+                <h3 class="option-section-title">추가 옵션</h3>
+
+                <p v-if="loadingOptions" class="option-status">
+                    옵션을 불러오는 중입니다.
+                </p>
+
+                <div v-else class="option-list">
+                    <button
+                        v-for="option in coffeeOptions"
+                        :key="option.id"
+                        type="button"
+                        class="option-card"
+                        :class="{
+                    selected:
+                        isOptionSelected(option.id)
+                }"
+                        @click="toggleOption(option.id)">
+                        <span class="option-check">
+                            {{
+                        isOptionSelected(option.id)
+                            ? "✓"
+                            : ""
+                    }}
+                        </span>
+
+                        <div>
+                            <strong>
+                                {{ option.name }}
+                            </strong>
+
+                            <small>
+                                +{{
+                            Number(
+                                option.price
+                            ).toLocaleString()
+                        }}원
+                            </small>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="option-price-box">
+                    <div>
+                        <span>기본 가격</span>
+
+                        <strong>
+                            {{
+                        Number(
+                            optionTargetMenu?.price || 0
+                        ).toLocaleString()
+                    }}원
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>
+                            {{ selectedCoffeeSize?.name || "사이즈" }}
+                        </span>
+
+                        <strong>
+                            +{{
+                                coffeeSizeAdditionalPrice
+                                    .toLocaleString()
+                            }}원
+                        </strong>
+                    </div>
+
+                    <div>
+                        <span>옵션 추가</span>
+
+                        <strong>
+                            +{{
+                        selectedOptionPrice
+                            .toLocaleString()
+                    }}원
+                        </strong>
+                    </div>
+
+                    <div class="option-total-row">
+                        <span>총 금액</span>
+
+                        <strong>
+                            {{
+                        optionTargetTotalPrice
+                            .toLocaleString()
+                    }}원
+                        </strong>
+                    </div>
+                </div>
+
+                <div class="option-button-group">
+                    <button type="button" class="option-cancel-button" @click="closeOptionModal">
+                        취소
+                    </button>
+
+                    <button
+                        type="button"
+                        class="option-confirm-button"
+                        @click="confirmCoffeeOption">
+                        {{
+                    selectedOptionIds.length > 0
+                        ? "선택 완료"
+                        : "옵션 없이 추가"
+                }}
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <!-- 장바구니 모달 -->
+        <div v-if="showCart" class="cart-overlay" @click.self="showCart = false">
+            <section class="cart-panel">
+                <header class="cart-header">
+                    <div>
+                        <span>장바구니</span>
+                        <h2>{{ cartCount }}개 상품</h2>
+                    </div>
+                    <button type="button" @click="showCart = false">×</button>
+                </header>
+
+                <p v-if="cartItems.length === 0" class="cart-empty">장바구니가 비어 있습니다.</p>
+
+                <div v-else class="cart-list">
+                    <article v-for="(item, index) in cartItems" :key="item.cartItemId" class="cart-item">
+                        <img v-if="item.menuImg" :src="item.menuImg" :alt="item.name" />
+                        <div class="cart-item-info">
+                            <h3>{{ item.name }}</h3>
+
+                            <template v-if="item.productType === 'ICE_CREAM'">
+                                <p v-if="item.sizeName">
+                                    사이즈: {{ item.sizeName }}
+                                </p>
+
+                                <p v-if="item.cupName">
+                                    제공 형태: {{ item.cupName }}
+                                </p>
+
+                                <p v-if="item.menus?.length" class="cart-flavor-list">
+                                    선택한 맛: {{ item.menus.map(menu => menu.name).join(', ') }}
+                                </p>
+                            </template>
+
+                            <template v-else>
+                                <p v-if="item.sizeName">
+                                    사이즈: {{ item.sizeName }}
+                                </p>
+                            </template>
+
+                            <p v-if="item.options?.length">
+                                옵션: {{ item.options.map(option => option.name).join(', ') }}
+                            </p>
+                            <strong>{{ (Number(item.unitPrice) * Number(item.quantity || 1)).toLocaleString() }}원</strong>
+                        </div>
+                        <div class="quantity-control">
+                            <button type="button" @click="decreaseQuantity(index)">−</button>
+                            <span>{{ item.quantity || 1 }}</span>
+                            <button type="button" @click="increaseQuantity(index)">+</button>
+                            <button type="button" class="remove" @click="removeCartItem(index)">삭제</button>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="cart-total">
+                    <span>총 금액</span>
+                    <strong>{{ cartTotalPrice.toLocaleString() }}원</strong>
+                </div>
+
+                <div class="cart-actions">
+                    <button type="button" class="continue" @click="continueShopping">메뉴 더 담기</button>
+                    <button type="button" class="pay" :disabled="cartItems.length === 0" @click="goPayment">결제하기</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- 하단 -->
+        <footer class="bottom-bar cart-bottom-bar">
+            <button type="button" class="bottom-button previous" @click="showCart = true">
+                장바구니 {{ cartCount }}
             </button>
 
             <button
                 type="button"
                 class="bottom-button next"
                 :disabled="!canMoveToPayment"
-                @click="goNext">
-                선택 완료
+                @click="addCurrentSelectionToCart">
+                장바구니 담기
             </button>
         </footer>
     </main>
@@ -664,9 +1538,9 @@
         font-weight: 800;
     }
 
-    .top-back-button {
+    .top-home-button {
         height: 36px;
-        padding: 0 12px;
+        padding: 0 0px;
         border: 0;
         border-radius: 20px;
         background: #fff0f7;
@@ -1027,4 +1901,284 @@
             gap: 5px;
         }
     }
+
+    .option-modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 300;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 18px;
+        background: rgba(0, 0, 0, 0.5);
+    }
+
+    .option-modal {
+        width: min(100%, 430px);
+        max-height: 90vh;
+        position: relative;
+        padding: 26px 22px 22px;
+        overflow-y: auto;
+        border-radius: 24px;
+        background: #ffffff;
+        box-shadow: 0 20px 70px rgba(0, 0, 0, 0.25);
+    }
+
+    .option-close-button {
+        width: 34px;
+        height: 34px;
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        border: 0;
+        border-radius: 50%;
+        background: #f3f3f3;
+        color: #777777;
+        font-size: 21px;
+        cursor: pointer;
+    }
+
+    .option-menu-info {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding-right: 38px;
+    }
+
+    .option-menu-info img {
+        width: 90px;
+        height: 90px;
+        object-fit: contain;
+    }
+
+    .option-menu-info span {
+        color: #999999;
+        font-size: 11px;
+    }
+
+    .option-menu-info h2 {
+        margin: 4px 0 7px;
+        color: #222222;
+        font-size: 19px;
+    }
+
+    .option-menu-info strong {
+        color: #ff1493;
+        font-size: 15px;
+    }
+
+    .option-description {
+        margin: 20px 0 15px;
+        color: #777777;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .option-status {
+        padding: 30px 0;
+        color: #999999;
+        font-size: 13px;
+        text-align: center;
+    }
+
+    .coffee-size-section {
+        margin: 18px 0;
+    }
+
+    .coffee-size-section h3,
+    .option-section-title {
+        margin: 0 0 10px;
+        color: #333333;
+        font-size: 14px;
+    }
+
+    .coffee-size-list {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .coffee-size-button {
+        min-height: 72px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 5px;
+        border: 2px solid #eeeeee;
+        border-radius: 15px;
+        background: #ffffff;
+        cursor: pointer;
+    }
+
+    .coffee-size-button strong {
+        color: #333333;
+        font-size: 14px;
+    }
+
+    .coffee-size-button span {
+        color: #999999;
+        font-size: 11px;
+    }
+
+    .coffee-size-button.selected {
+        border-color: #ff1493;
+        background: #fff2f8;
+    }
+
+    .coffee-size-button.selected strong,
+    .coffee-size-button.selected span {
+        color: #ff1493;
+    }
+
+    .option-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .option-card {
+        width: 100%;
+        min-height: 68px;
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        padding: 12px 15px;
+        border: 2px solid #eeeeee;
+        border-radius: 15px;
+        background: #ffffff;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .option-card.selected {
+        border-color: #ff1493;
+        background: #fff2f8;
+    }
+
+    .option-check {
+        width: 25px;
+        height: 25px;
+        flex-shrink: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 2px solid #dddddd;
+        border-radius: 50%;
+        color: #ffffff;
+        font-size: 14px;
+    }
+
+    .option-card.selected .option-check {
+        border-color: #ff1493;
+        background: #ff1493;
+    }
+
+    .option-card > div {
+        flex: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .option-card strong {
+        color: #333333;
+        font-size: 14px;
+    }
+
+    .option-card small {
+        color: #ff1493;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .option-price-box {
+        margin-top: 18px;
+        padding: 14px;
+        border-radius: 15px;
+        background: #f8f8f8;
+    }
+
+    .option-price-box > div {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        color: #777777;
+        font-size: 12px;
+    }
+
+    .option-price-box > div:last-child {
+        margin-bottom: 0;
+    }
+
+    .option-total-row {
+        padding-top: 10px;
+        border-top: 1px solid #dddddd;
+    }
+
+    .option-total-row span {
+        color: #333333;
+        font-weight: 800;
+    }
+
+    .option-total-row strong {
+        color: #ff1493;
+        font-size: 17px;
+    }
+
+    .option-button-group {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    .option-button-group button {
+        height: 50px;
+        border-radius: 25px;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    .option-cancel-button {
+        border: 1px solid #dddddd;
+        background: #ffffff;
+        color: #666666;
+    }
+
+    .option-confirm-button {
+        border: 0;
+        background: #ff1493;
+        color: #ffffff;
+    }
+
+    .cart-overlay {
+        position: fixed; inset: 0; z-index: 100;
+        display: flex; align-items: flex-end; justify-content: center;
+        background: rgba(0,0,0,.45);
+    }
+    .cart-panel {
+        width: min(100%, 540px); max-height: 86vh; overflow-y: auto;
+        padding: 22px 18px 24px; border-radius: 26px 26px 0 0; background: #fff;
+    }
+    .cart-header, .cart-total, .cart-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .cart-header h2 { margin:4px 0 0; }
+    .cart-header > button { border:0; background:transparent; font-size:30px; cursor:pointer; }
+    .cart-list { display:grid; gap:12px; margin:18px 0; }
+    .cart-item { display:grid; grid-template-columns:70px 1fr auto; gap:12px; align-items:center; padding:12px; border:1px solid #f1d5e4; border-radius:16px; }
+    .cart-item img { width:68px; height:68px; object-fit:contain; }
+    .cart-item-info h3 { margin:0 0 5px; font-size:14px; }
+    .cart-item-info p { margin:2px 0; color:#777; font-size:11px; }
+    .cart-item-info .cart-flavor-list { color:#555; line-height:1.45; }
+    .cart-item-info strong { display:block; margin-top:6px; color:#ff1493; }
+    .quantity-control { display:grid; grid-template-columns:30px 28px 30px; gap:4px; align-items:center; text-align:center; }
+    .quantity-control button { height:30px; border:1px solid #ddd; border-radius:9px; background:#fff; cursor:pointer; }
+    .quantity-control .remove { grid-column:1 / 4; color:#d33; }
+    .cart-total { padding:16px 2px; border-top:1px solid #eee; font-size:18px; }
+    .cart-total strong { color:#ff1493; font-size:22px; }
+    .cart-actions button { flex:1; height:52px; border-radius:26px; font-weight:800; cursor:pointer; }
+    .cart-actions .continue { border:1px solid #ff1493; background:#fff; color:#ff1493; }
+    .cart-actions .pay { border:0; background:#ff1493; color:#fff; }
+    .cart-empty { padding:50px 0; text-align:center; color:#999; }
 </style>

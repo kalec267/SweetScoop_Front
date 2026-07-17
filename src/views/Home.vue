@@ -93,8 +93,10 @@ button {
 }
 
 .home-page {
-    width: 100;
-    min-height: 100vh;
+    width: min(100%, 540px);
+    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
     margin: 0 auto;
     position: relative;
     display: flex;
@@ -105,7 +107,7 @@ button {
 /* 상단 로고 */
 
 .top-header {
-    height: 68px;
+    height: clamp(52px, 8vh, 68px);
     display: flex;
     align-items: flex-start;
     padding: 10px 18px;
@@ -120,12 +122,17 @@ button {
 /* 이벤트 배너 */
 
 .banner-section {
-    padding: 8px 58px 0;
+    flex: 1;
+    min-height: 0;
+    padding: 6px clamp(24px, 8vw, 52px) 0;
+    display: flex;
 }
 
 .banner-frame {
     width: 100%;
-    padding: 9px;
+    height: 100%;
+    max-height: 52vh;
+    padding: 8px;
     border: 2px solid #ff93c7;
     border-radius: 15px;
     background: #fff;
@@ -133,9 +140,9 @@ button {
 
 .banner-image {
     width: 100%;
-    aspect-ratio: 0.66;
+    height: 100%;
     display: block;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 /* 매장/포장 선택 */
@@ -144,11 +151,11 @@ button {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 16px;
-    padding: 42px 50px 24px;
+    padding: clamp(18px, 4vh, 32px) clamp(28px, 8vw, 50px) 14px;
 }
 
 .order-type-button {
-    height: 70px;
+    height: clamp(58px, 9vh, 70px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -185,7 +192,7 @@ button {
 
 .language-button {
     align-self: flex-end;
-    margin: auto 38px 17px 0;
+    margin: 0 28px 12px 0;
     padding: 8px 0;
     border: 0;
     background: transparent;

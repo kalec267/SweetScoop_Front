@@ -16,13 +16,14 @@
         customerId: null,
         branchId: null,
         kioskId: null,
-        iceCream: null,
-        mochi: [],
-        coffee: []
+        items: [],
+        member: null
     });
 
     const paymentMethod = ref(null);
     const paying = ref(false);
+    const cartItems = ref([]);
+    const usingCart = computed(() => cartItems.value.length > 0);
 
     const orderTypeName = computed(() => {
         return orderData.value.orderType === "STORE"
@@ -30,66 +31,64 @@
             : "포장";
     });
 
-    const mochiTotalPrice = computed(() => {
-        return orderData
-            .value
-            .mochi
-            .reduce((sum, item) => sum + (Number(item.price) || 0), 0);
-    });
-
-    const coffeeTotalPrice = computed(() => {
-        return orderData
-            .value
-            .coffee
-            .reduce((sum, item) => sum + (Number(item.price) || 0), 0);
-    });
-
     const totalPrice = computed(() => {
-        const iceCreamPrice = Number(
-            orderData.value.iceCream
-                ?.totalPrice
-        ) || 0;
+        return cartItems.value.reduce(
+            (sum, item) => {
+                const quantity = Number(item.quantity) || 1;
+                const unitPrice =
+                    Number(item.unitPrice ?? item.totalPrice) || 0;
 
-        return (iceCreamPrice + mochiTotalPrice.value + coffeeTotalPrice.value);
+                return sum + unitPrice * quantity;
+            },
+            0
+        );
     });
 
     const orderName = computed(() => {
-        const names = [];
-
-        if (orderData.value.iceCream) {
-            names.push(orderData.value.iceCream.sizeName || "아이스크림");
+        if (cartItems.value.length === 0) {
+            return "SweetScoop 주문";
         }
 
-        if (
-            orderData.value.mochi
-                ?.length > 0
-        ) {
-            names.push(`아이스모찌 ${orderData.value.mochi.length}개`);
-        }
+        const firstName =
+            cartItems.value[0]?.name ||
+            "SweetScoop 상품";
 
-        if (
-            orderData.value.coffee
-                ?.length > 0
-        ) {
-            names.push(`커피 ${orderData.value.coffee.length}개`);
-        }
+        const extraCount = cartItems.value.length - 1;
 
-        return names.length > 0
-            ? names.join(", ")
-            : "SweetScoop 주문";
+        return extraCount > 0
+            ? `${firstName} 외 ${extraCount}건`
+            : firstName;
     });
 
-    const hasIceCream = computed(() => {
-        return Boolean(orderData.value.iceCream);
-    });
+    const iceCreamItems = computed(() =>
+        cartItems.value.filter(
+            item => item.productType === "ICE_CREAM"
+        )
+    );
 
-    const hasMochi = computed(() => {
-        return orderData.value.mochi.length > 0;
-    });
+    const mochiItems = computed(() =>
+        cartItems.value.filter(
+            item => item.productType === "MOCHI"
+        )
+    );
 
-    const hasCoffee = computed(() => {
-        return orderData.value.coffee.length > 0;
-    });
+    const coffeeItems = computed(() =>
+        cartItems.value.filter(
+            item => item.productType === "COFFEE"
+        )
+    );
+
+    const hasIceCream = computed(() =>
+        iceCreamItems.value.length > 0
+    );
+
+    const hasMochi = computed(() =>
+        mochiItems.value.length > 0
+    );
+
+    const hasCoffee = computed(() =>
+        coffeeItems.value.length > 0
+    );
 
     const normalizePhoneNumber = (value) => {
         return String(value)
@@ -101,26 +100,156 @@
         phoneNumber.value = normalizePhoneNumber(event.target.value);
     };
 
-    const loadOrderData = () => {
-        const savedOrder = sessionStorage.getItem("orderData");
+    const normalizeCartItem = (item) => {
+        const options = Array.isArray(item.options)
+            ? item.options
+            : [];
 
-        if (!savedOrder) {
-            alert("저장된 주문 정보가 없습니다.");
-            router.push("/");
-            return;
-        }
+        const optionPrice = options.reduce(
+            (sum, option) =>
+                sum + (Number(option.price) || 0),
+            0
+        );
+
+        const basePrice =
+            Number(item.basePrice ?? item.price) || 0;
+
+        const sizePrice =
+            Number(
+                item.sizeAdditionalPrice ??
+                item.sizePrice
+            ) || 0;
+
+        const savedUnitPrice =
+            Number(item.unitPrice) || 0;
+
+        const legacyTotalPrice =
+            Number(item.totalPrice) || 0;
+
+        const calculatedPrice =
+            basePrice + sizePrice + optionPrice;
+
+        /*
+         * totalPrice가 이미 수량까지 곱해진 값일 수 있으므로
+         * unitPrice가 있으면 unitPrice를 우선한다.
+         */
+        const unitPrice =
+            savedUnitPrice > 0
+                ? savedUnitPrice
+                : calculatedPrice > 0
+                    ? calculatedPrice
+                    : legacyTotalPrice;
+
+        return {
+            ...item,
+            quantity: Number(item.quantity) || 1,
+            menus: Array.isArray(item.menus)
+                ? item.menus
+                : [],
+            options,
+            unitPrice,
+            totalPrice: unitPrice
+        };
+    };
+
+    const loadOrderData = () => {
+        const savedOrder =
+            sessionStorage.getItem("orderData");
+
+        const savedCart =
+            sessionStorage.getItem("cartData");
 
         try {
-            orderData.value = JSON.parse(savedOrder);
+            if (savedOrder) {
+                const parsedOrder =
+                    JSON.parse(savedOrder);
 
-            console.log("결제 화면 주문 JSON:", orderData.value);
+                orderData.value = {
+                    orderType:
+                        parsedOrder.orderType ||
+                        "TAKEOUT",
+                    customerId:
+                        parsedOrder.customerId ?? null,
+                    branchId:
+                        parsedOrder.branchId ?? 1,
+                    kioskId:
+                        parsedOrder.kioskId ?? 1,
+                    items:
+                        Array.isArray(parsedOrder.items)
+                            ? parsedOrder.items
+                            : [],
+                    member:
+                        parsedOrder.member ?? null
+                };
+
+                cartItems.value =
+                    orderData.value.items.map(
+                        normalizeCartItem
+                    );
+            }
+
+            /*
+             * 예전 버전에서 orderData.items가 없고
+             * cartData에만 상품이 저장된 경우를 보정한다.
+             */
+            if (
+                cartItems.value.length === 0 &&
+                savedCart
+            ) {
+                const parsedCart =
+                    JSON.parse(savedCart);
+
+                cartItems.value =
+                    Array.isArray(parsedCart.items)
+                        ? parsedCart.items.map(
+                            normalizeCartItem
+                        )
+                        : [];
+
+                orderData.value = {
+                    ...orderData.value,
+                    orderType:
+                        parsedCart.orderType ||
+                        orderData.value.orderType ||
+                        "TAKEOUT",
+                    customerId:
+                        parsedCart.customerId ??
+                        orderData.value.customerId,
+                    branchId:
+                        parsedCart.branchId ??
+                        orderData.value.branchId ??
+                        1,
+                    kioskId:
+                        parsedCart.kioskId ??
+                        orderData.value.kioskId ??
+                        1,
+                    items: cartItems.value
+                };
+
+                sessionStorage.setItem(
+                    "orderData",
+                    JSON.stringify(orderData.value)
+                );
+            }
+
+            if (cartItems.value.length === 0) {
+                alert("장바구니에 저장된 상품이 없습니다.");
+                router.push("/");
+                return;
+            }
+
+            console.log(
+                "결제 화면 통합 주문 데이터:",
+                orderData.value
+            );
         } catch (error) {
-            console.error("주문 JSON 파싱 실패:", error);
+            console.error(
+                "주문 데이터 불러오기 실패:",
+                error
+            );
 
             sessionStorage.removeItem("orderData");
-
-            alert("주문 정보를 불러오지 못했습니다.");
-
+            sessionStorage.removeItem("cartData");
             router.push("/");
         }
     };
@@ -131,6 +260,7 @@
 
     const goHome = () => {
         sessionStorage.removeItem("orderData");
+        sessionStorage.removeItem("cartData");
         router.push("/");
     };
 
@@ -139,53 +269,59 @@
     };
 
     const createOrderRequest = () => {
-        const items = [];
+        const items = cartItems.value.map(item => {
+            const quantity = Number(item.quantity) || 1;
+            const unitPrice = Number(item.unitPrice ?? item.totalPrice) || 0;
 
-        if (orderData.value.iceCream) {
+            return {
+                /* 모찌/커피는 컵 또는 아이스크림 사이즈가 없을 수 있으므로 null 허용 */
+                cupId: item.cupId != null ? Number(item.cupId) : null,
+                sizeId: item.sizeId != null ? Number(item.sizeId) : null,
+                quantity,
+                totalPrice: unitPrice * quantity,
+                menus: (item.menus || [])
+                    .map(menu => Number(menu.menuId ?? menu.id))
+                    .filter(Number.isFinite)
+                    .map(menuId => ({ menuId })),
+                options: (item.options || [])
+                    .map(option => Number(option.menuOptionId ?? option.id))
+                    .filter(Number.isFinite)
+                    .map(menuOptionId => ({ menuOptionId }))
+            };
+        });
+
+        if (!usingCart.value && orderData.value.iceCream) {
             items.push({
-                cupId: orderData.value.iceCream.cupId,
-                sizeId: orderData.value.iceCream.sizeId,
+                cupId: Number(orderData.value.iceCream.cupId),
+                sizeId: Number(orderData.value.iceCream.sizeId),
                 quantity: 1,
                 totalPrice: Number(orderData.value.iceCream.totalPrice) || 0,
-
-                menus: orderData
-                    .value
-                    .iceCream
-                    .flavors
-                    .map(flavor => ({menuId: flavor.menuId})),
-
+                menus: (orderData.value.iceCream.flavors || []).map(flavor => ({
+                    menuId: Number(flavor.menuId)
+                })),
                 options: []
             });
         }
 
-        /*
-     * 아이스모찌와 커피도 ORDERITEM으로 저장하려면
-     * 사이즈/컵 구조에 맞춰 별도 items.push가 필요합니다.
-     */
-
         return {
-            customerId: orderData.value.customerId ?? 1,
+            customerId: orderData.value.customerId ?? 2,
             branchId: orderData.value.branchId ?? 1,
             kioskId: orderData.value.kioskId ?? 1,
-
-            orderType: orderData.value.orderType,
+            orderType: orderData.value.orderType || "TAKEOUT",
             language: "KO",
             status: "PAYMENT_PENDING",
-
-            createdAt: new Date()
-                .toISOString()
-                .slice(0, 19),
-
+            createdAt: new Date().toISOString().slice(0, 19),
             waitingNo: null,
             receiptNo: `R${Date.now()}`,
             totalPrice: totalPrice.value,
             couponUsed: false,
-
             items,
-
+            /* PaymentRequestDTO 필드명은 paymentMethod가 아니라 method */
             payment: {
-                paymentMethod: paymentMethod.value,
-                amount: totalPrice.value
+                method: paymentMethod.value,
+                amount: totalPrice.value,
+                cardCompany: "TOSS",
+                paymentStatus: "READY"
             }
         };
     };
@@ -213,7 +349,11 @@
         paying.value = true;
 
         try {
-            sessionStorage.setItem("orderData", JSON.stringify(orderData.value));
+            orderData.value.items = cartItems.value;
+            sessionStorage.setItem(
+                "orderData",
+                JSON.stringify(orderData.value)
+            );
 
             const orderRequest = {
                 ...createOrderRequest(),
@@ -231,11 +371,11 @@
             const tossOrderId = `SWEETSCOOP-${realOrderId}-${Date.now()}`;
 
             const paymentData = {
-                orderData: orderData.value,
+                orderData: { ...orderData.value, cartItems: cartItems.value },
                 orderRequest,
                 realOrderId,
                 tossOrderId,
-                paymentMethod: paymentMethod.value,
+                method: paymentMethod.value,
                 amount: totalPrice.value,
                 status: "READY"
             };
@@ -258,6 +398,8 @@
             });
         } catch (error) {
             console.error("결제 준비 실패:", error);
+            console.error("백엔드 응답:", error.response?.data);
+            console.error("전송한 주문 JSON:", createOrderRequest());
 
             alert(
                 error.response
@@ -331,6 +473,7 @@
             ...orderData.value,
 
             customerId: memberCustomerId,
+            items: cartItems.value,
 
             member: {
                 isMember: true,
@@ -356,6 +499,7 @@
             ...orderData.value,
 
             customerId: guestCustomerId,
+            items: cartItems.value,
 
             member: {
                 isMember: false,
@@ -399,8 +543,28 @@
             </strong>
         </section>
 
+        <section v-if="usingCart" class="order-section">
+            <div class="section-header">
+                <h2>장바구니 상품</h2>
+                <strong>{{ totalPrice.toLocaleString() }}원</strong>
+            </div>
+            <div class="cart-payment-list">
+                <article v-for="item in cartItems" :key="item.cartItemId" class="cart-payment-item">
+                    <img v-if="item.menuImg || item.menus?.[0]?.menuImg" :src="item.menuImg || item.menus[0].menuImg" :alt="item.name"/>
+                    <div>
+                        <h4>{{ item.name }}</h4>
+                        <p v-if="item.sizeName">{{ item.sizeName }}</p>
+                        <p v-if="item.menus?.length > 1">{{ item.menus.map(menu => menu.name).join(', ') }}</p>
+                        <p v-if="item.options?.length">{{ item.options.map(option => option.name).join(', ') }}</p>
+                    </div>
+                    <span>{{ item.quantity }}개</span>
+                    <strong>{{ (Number(item.unitPrice ?? item.totalPrice ?? 0) * Number(item.quantity || 1)).toLocaleString() }}원</strong>
+                </article>
+            </div>
+        </section>
+
         <!-- 아이스크림 -->
-        <section v-if="hasIceCream" class="order-section">
+        <section v-if="!usingCart && hasIceCream" class="order-section">
             <div class="section-header">
                 <h2>아이스크림</h2>
 
@@ -465,7 +629,7 @@
         </section>
 
         <!-- 아이스모찌 -->
-        <section v-if="hasMochi" class="order-section">
+        <section v-if="!usingCart && hasMochi" class="order-section">
             <div class="section-header">
                 <h2>아이스모찌</h2>
 
@@ -490,7 +654,7 @@
         </section>
 
         <!-- 커피 -->
-        <section v-if="hasCoffee" class="order-section">
+        <section v-if="!usingCart && hasCoffee" class="order-section">
             <div class="section-header">
                 <h2>커피</h2>
 
@@ -1232,4 +1396,13 @@
         background: #ffffff;
         color: #666666;
     }
+</style>
+<style scoped>
+.cart-payment-list { display: grid; gap: 10px; }
+.cart-payment-item { display: grid; grid-template-columns: 58px 1fr auto auto; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #eee; }
+.cart-payment-item img { width: 56px; height: 56px; object-fit: contain; }
+.cart-payment-item h4 { margin: 0 0 4px; }
+.cart-payment-item p { margin: 2px 0; color: #888; font-size: 11px; }
+.cart-payment-item > span { color: #666; }
+.cart-payment-item > strong { color: #ff1493; white-space: nowrap; }
 </style>
