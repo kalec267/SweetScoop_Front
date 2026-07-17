@@ -4,9 +4,13 @@
     <div class="inventory-header">
       <div class="title-area">
         <h2>지점별 실시간 재고 관리</h2>
+        
+        <!-- DB 연동 지점 리스트 동적 v-for 바인딩 완료 -->
         <select v-model="selectedBranchId" @change="fetchInventoryData" class="branch-select">
-          <option :value="1">1번 지점 (강남역점)</option>
-          <option :value="2">2번 지점 (홍대점)</option>
+          <option value="" disabled>--- 지점을 선택하세요 ---</option>
+          <option v-for="branch in branchList" :key="branch.id" :value="branch.id">
+            {{ branch.id }}번 지점 ({{ branch.branchName }})
+          </option>
         </select>
       </div>
       <div class="action-area">
@@ -74,7 +78,8 @@ export default {
   name: 'BranchInventory',
   data() {
     return {
-      selectedBranchId: 1,
+      selectedBranchId: "", // 초기값 비워두고 지점 리스트 로드 후 셋팅
+      branchList: [],       // 백엔드 DB에서 받아온 지점 마스터 리스트를 저장할 배열 변수
       inventoryList: []
     };
   },
@@ -85,12 +90,29 @@ export default {
     }
   },
   mounted() {
-    this.fetchInventoryData();
+    // 화면이 열리자마자 지점 목록을 먼저 받아옵니다.
+    this.fetchBranchList();
   },
   methods: {
-    async fetchInventoryData() {
+    // 백엔드 API에서 지점 리스트를 동적으로 읽어오는 메서드
+    async fetchBranchList() {
       try {
-        // 기존 포트번호(5173 또는 8888) 및 컨트롤러 주소 규칙(/inventory/branch/)에 맞게 수정
+        const response = await axios.get('http://localhost:8888/inventory/branches');
+        this.branchList = response.data;
+        
+        // 지점이 존재하면 리스트의 첫 번째 지점을 기본값으로 잡고 재고 데이터를 조회합니다.
+        if (this.branchList.length > 0) {
+          this.selectedBranchId = this.branchList[0].id;
+          this.fetchInventoryData();
+        }
+      } catch (error) {
+        console.error("지점 마스터 목록 로드 실패:", error);
+      }
+    },
+    async fetchInventoryData() {
+      if (!this.selectedBranchId) return; // 선택된 지점이 없으면 통신 스킵
+      
+      try {
         const response = await axios.get(`http://localhost:8888/inventory/branch/${this.selectedBranchId}`);
         this.inventoryList = response.data;
       } catch (error) {
