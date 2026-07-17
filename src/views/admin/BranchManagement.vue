@@ -1,185 +1,528 @@
 <template>
-  <div class="container mt-5">
-    <h2 class="mb-4">🏬 본점 관리 시스템 - 분점 관리</h2>
-    <hr />
-
-    <div class="card mb-5 shadow-sm">
-      <div class="card-header bg-primary text-white fw-bold">신규 분점 등록</div>
-      <div class="card-body">
-        <form @submit.prevent="registerBranch" class="row g-3">
-          <div class="col-md-5">
-            <input v-model="newBranch.branchName" type="text" class="form-control" placeholder="지점명 (예: 강남점)" required />
-          </div>
-          <div class="col-md-5">
-            <input v-model="newBranch.location" type="text" class="form-control" placeholder="위치/주소" required />
-          </div>
-          <div class="col-md-2">
-            <button type="submit" class="btn btn-success w-100">등록하기</button>
-          </div>
-        </form>
+  <div class="branch-page">
+    <header class="page-header">
+      <div>
+        <p class="page-eyebrow">HEAD OFFICE MANAGEMENT</p>
+        <h1>분점 관리</h1>
+        <p class="page-description">
+          신규 분점을 등록하고 지점별 운영 상태를 관리합니다.
+        </p>
       </div>
+
+      <button
+        type="button"
+        class="refresh-button"
+        :disabled="isLoading"
+        @click="fetchBranches"
+      >
+        <span :class="{ rotating: isLoading }">↻</span>
+        새로고침
+      </button>
+    </header>
+
+    <section class="summary-grid">
+      <article class="summary-card">
+        <div class="summary-icon blue">🏬</div>
+        <div>
+          <span class="summary-label">전체 분점</span>
+          <strong>{{ branches.length }}</strong>
+        </div>
+      </article>
+
+      <article class="summary-card">
+        <div class="summary-icon green">●</div>
+        <div>
+          <span class="summary-label">정상 운영</span>
+          <strong>{{ normalBranchCount }}</strong>
+        </div>
+      </article>
+
+      <article class="summary-card">
+        <div class="summary-icon orange">◷</div>
+        <div>
+          <span class="summary-label">대기·점검</span>
+          <strong>{{ waitingBranchCount }}</strong>
+        </div>
+      </article>
+
+      <article class="summary-card">
+        <div class="summary-icon red">!</div>
+        <div>
+          <span class="summary-label">운영 중단</span>
+          <strong>{{ stoppedBranchCount }}</strong>
+        </div>
+      </article>
+    </section>
+
+    <section class="content-card">
+      <div class="card-heading">
+        <div>
+          <span class="section-badge">NEW BRANCH</span>
+          <h2>신규 분점 등록</h2>
+          <p>지점명과 위치를 입력해 새로운 분점을 등록합니다.</p>
+        </div>
+      </div>
+
+      <form class="register-form" @submit.prevent="registerBranch">
+        <div class="form-group">
+          <label for="branch-name">지점명</label>
+
+          <div class="input-wrapper">
+            <span class="input-icon">🏪</span>
+
+            <input
+              id="branch-name"
+              v-model.trim="newBranch.branchName"
+              type="text"
+              placeholder="예: 스윗스쿱 강남점"
+              maxlength="50"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="branch-location">위치 / 주소</label>
+
+          <div class="input-wrapper">
+            <span class="input-icon">📍</span>
+
+            <input
+              id="branch-location"
+              v-model.trim="newBranch.location"
+              type="text"
+              placeholder="예: 서울특별시 강남구 강남대로"
+              maxlength="100"
+              required
+            />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          class="primary-button"
+          :disabled="isSubmitting"
+        >
+          {{ isSubmitting ? "등록 중..." : "분점 등록 +" }}
+        </button>
+      </form>
+    </section>
+
+    <div v-if="errorMessage" class="error-message">
+      <span>⚠️</span>
+
+      <div>
+        <strong>요청 처리 중 오류가 발생했습니다.</strong>
+        <p>{{ errorMessage }}</p>
+      </div>
+
+      <button type="button" @click="errorMessage = ''">
+        ×
+      </button>
     </div>
 
-    <h3 class="mb-3 fw-bold">등록된 분점 리스트</h3>
-    <table class="table table-hover table-bordered align-middle shadow-sm">
-      <thead class="table-dark">
-        <tr>
-          <th style="width: 10%;">지점 ID</th>
-          <th style="width: 25%;">지점명 (클릭 시 하단 상세조회)</th>
-          <th style="width: 30%;">위치 / 주소</th>
-          <th style="width: 15%; text-align: center;">통합 운영 상태</th>
-          <th style="width: 20%; text-align: center;">관리</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-if="branches.length === 0">
-          <td colspan="5" class="text-center text-muted">등록된 분점이 없습니다.</td>
-        </tr>
-        <tr v-for="branch in branches" :key="branch.id" :class="{'table-primary': selectedBranchId === branch.id}">
-          <td>{{ branch.id }}</td>
-          
-          <td v-if="editingId === branch.id">
-            <input v-model="editForm.branchName" type="text" class="form-control form-control-sm" required />
-          </td>
-          <td v-else>
-            <a href="#" @click.prevent="selectedBranchId = branch.id" class="text-decoration-none fw-bold text-primary">
-              {{ branch.branchName }} 🔍
-            </a>
-          </td>
+    <section class="content-card">
+      <div class="list-header">
+        <div>
+          <span class="section-badge">BRANCH LIST</span>
+          <h2>등록된 분점 리스트</h2>
+          <p>지점명을 클릭하면 상세 정보를 확인할 수 있습니다.</p>
+        </div>
 
-          <td v-if="editingId === branch.id">
-            <input v-model="editForm.location" type="text" class="form-control form-control-sm" required />
-          </td>
-          <td v-else>{{ branch.location }}</td>
+        <div class="branch-count">
+          총 <strong>{{ branches.length }}</strong>개 지점
+        </div>
+      </div>
 
-          <td class="text-center">
-            <span :class="getStatusBadgeClass(branch.status)">
-              {{ branch.status }}
-            </span>
-          </td>
+      <div class="table-container">
+        <table class="branch-table">
+          <thead>
+            <tr>
+              <th style="width: 10%">지점 ID</th>
+              <th style="width: 25%">지점명</th>
+              <th style="width: 30%">위치 / 주소</th>
+              <th style="width: 15%" class="center">운영 상태</th>
+              <th style="width: 20%" class="center">관리</th>
+            </tr>
+          </thead>
 
-          <td class="text-center">
-            <span v-if="editingId === branch.id">
-              <button @click="saveEdit(branch.id)" class="btn btn-sm btn-primary me-1">저장</button>
-              <button @click="cancelEdit" class="btn btn-sm btn-secondary">취소</button>
-            </span>
-            <span v-else>
-              <button @click="startEdit(branch)" class="btn btn-sm btn-warning me-1 text-white">수정</button>
-              <button @click="deleteBranch(branch.id)" class="btn btn-sm btn-danger">삭제</button>
-            </span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+          <tbody>
+            <tr v-if="isLoading">
+              <td colspan="5">
+                <div class="table-state">
+                  <div class="spinner"></div>
+                  <p>분점 목록을 불러오는 중입니다.</p>
+                </div>
+              </td>
+            </tr>
 
-    <BranchDetail 
-      ref="detailComponentRef"
-      :branch-id="selectedBranchId" 
-      @close="selectedBranchId = null"
-    />
+            <tr v-else-if="branches.length === 0">
+              <td colspan="5">
+                <div class="table-state empty-state">
+                  <span>🏬</span>
+                  <strong>등록된 분점이 없습니다.</strong>
+                  <p>상단에서 새로운 분점을 등록해 주세요.</p>
+                </div>
+              </td>
+            </tr>
 
+            <tr
+              v-for="branch in branches"
+              v-else
+              :key="branch.id"
+              :class="{
+                selected: selectedBranchId === branch.id,
+                editing: editingId === branch.id
+              }"
+            >
+              <td>
+                <span class="branch-id">
+                  #{{ branch.id }}
+                </span>
+              </td>
+
+              <td v-if="editingId === branch.id">
+                <input
+                  v-model.trim="editForm.branchName"
+                  type="text"
+                  class="table-input"
+                  maxlength="50"
+                  required
+                />
+              </td>
+
+              <td v-else>
+                <button
+                  type="button"
+                  class="branch-name-button"
+                  @click="selectBranch(branch.id)"
+                >
+                  <span class="branch-avatar">
+                    {{ getBranchInitial(branch.branchName) }}
+                  </span>
+
+                  <span class="branch-name-content">
+                    <strong>{{ branch.branchName }}</strong>
+                    <small>상세 정보 보기</small>
+                  </span>
+
+                  <span class="detail-arrow">›</span>
+                </button>
+              </td>
+
+              <td v-if="editingId === branch.id">
+                <input
+                  v-model.trim="editForm.location"
+                  type="text"
+                  class="table-input"
+                  maxlength="100"
+                  required
+                />
+              </td>
+
+              <td v-else>
+                <div class="location-cell">
+                  <span>📍</span>
+                  <span>{{ branch.location }}</span>
+                </div>
+              </td>
+
+              <td class="center">
+                <span :class="getStatusBadgeClass(branch.status)">
+                  <span class="status-dot"></span>
+                  {{ branch.status || "상태 미확인" }}
+                </span>
+              </td>
+
+              <td class="center">
+                <div
+                  v-if="editingId === branch.id"
+                  class="action-group"
+                >
+                  <button
+                    type="button"
+                    class="action-button save"
+                    @click="saveEdit(branch.id)"
+                  >
+                    저장
+                  </button>
+
+                  <button
+                    type="button"
+                    class="action-button cancel"
+                    @click="cancelEdit"
+                  >
+                    취소
+                  </button>
+                </div>
+
+                <div v-else class="action-group">
+                  <button
+                    type="button"
+                    class="action-button edit"
+                    @click="startEdit(branch)"
+                  >
+                    수정
+                  </button>
+
+                  <button
+                    type="button"
+                    class="action-button delete"
+                    @click="deleteBranch(branch.id)"
+                  >
+                    삭제
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <Transition name="detail-slide">
+      <section
+        v-if="selectedBranchId !== null"
+        class="detail-section"
+      >
+        <BranchDetail
+          ref="detailComponentRef"
+          :branch-id="selectedBranchId"
+          @close="selectedBranchId = null"
+        />
+      </section>
+    </Transition>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import axios from 'axios'
-import BranchDetail from "../../components/admin/BranchDetail.vue"; // 💡 자식 컴포넌트 불러오기
+import { computed, onMounted, ref } from "vue";
+import axios from "axios";
 
-// 상태 정의
-const branches = ref([])
-const newBranch = ref({ branchName: '', location: '' })
+import BranchDetail from "../../components/admin/BranchDetail.vue";
 
-const editingId = ref(null)
-const editForm = ref({ branchName: '', location: '' })
+const branches = ref([]);
 
-// 💡 현재 선택된 분점 ID 상태값 관리
-const selectedBranchId = ref(null)
-const detailComponentRef = ref(null)
+const newBranch = ref({
+  branchName: "",
+  location: ""
+});
 
-const API_URL = '/api/admin/branches'
+const editingId = ref(null);
 
-// 1. 전체 목록 가져오기 (GET)
+const editForm = ref({
+  branchName: "",
+  location: ""
+});
+
+const selectedBranchId = ref(null);
+const detailComponentRef = ref(null);
+
+const isLoading = ref(false);
+const isSubmitting = ref(false);
+const errorMessage = ref("");
+
+const API_URL = "/api/admin/branches";
+
+const normalBranchCount = computed(() =>
+  branches.value.filter(
+    (branch) => branch.status === "정상"
+  ).length
+);
+
+const waitingBranchCount = computed(() =>
+  branches.value.filter(
+    (branch) =>
+      branch.status?.includes("대기") ||
+      branch.status?.includes("점검")
+  ).length
+);
+
+const stoppedBranchCount = computed(() =>
+  branches.value.filter(
+    (branch) => branch.status?.includes("중단")
+  ).length
+);
+
+const getBranchInitial = (branchName) => {
+  if (!branchName) {
+    return "B";
+  }
+
+  return branchName.trim().charAt(0);
+};
+
+const selectBranch = (branchId) => {
+  selectedBranchId.value =
+    selectedBranchId.value === branchId
+      ? null
+      : branchId;
+};
+
 const fetchBranches = async () => {
-  try {
-    const response = await axios.get(API_URL)
-    branches.value = response.data
-  } catch (error) {
-    console.error('목록 불러오기 실패:', error)
-  }
-}
+  isLoading.value = true;
+  errorMessage.value = "";
 
-// 2. 신규 분점 등록하기 (POST)
+  try {
+    const response = await axios.get(API_URL);
+    branches.value = response.data;
+  } catch (error) {
+    console.error("목록 불러오기 실패:", error);
+
+    errorMessage.value =
+      error.response?.data?.message ||
+      error.response?.data ||
+      "분점 목록을 불러오지 못했습니다.";
+  } finally {
+    isLoading.value = false;
+  }
+};
+
 const registerBranch = async () => {
-  try {
-    await axios.post(API_URL, newBranch.value)
-    alert('분점이 성공적으로 등록되었습니다.')
-    newBranch.value.branchName = ''
-    newBranch.value.location = ''
-    fetchBranches()
-  } catch (error) {
-    console.error('등록 실패:', error)
+  if (
+    !newBranch.value.branchName.trim() ||
+    !newBranch.value.location.trim()
+  ) {
+    alert("지점명과 주소를 모두 입력해 주세요.");
+    return;
   }
-}
 
-// 3. 수정 모드 진입
+  isSubmitting.value = true;
+  errorMessage.value = "";
+
+  try {
+    await axios.post(API_URL, newBranch.value);
+
+    alert("분점이 성공적으로 등록되었습니다.");
+
+    newBranch.value = {
+      branchName: "",
+      location: ""
+    };
+
+    await fetchBranches();
+  } catch (error) {
+    console.error("등록 실패:", error);
+
+    errorMessage.value =
+      error.response?.data?.message ||
+      error.response?.data ||
+      "분점 등록에 실패했습니다.";
+  } finally {
+    isSubmitting.value = false;
+  }
+};
+
 const startEdit = (branch) => {
-  editingId.value = branch.id
-  editForm.value = { branchName: branch.branchName, location: branch.location }
-}
+  editingId.value = branch.id;
 
-// 4. 수정 취소
+  editForm.value = {
+    branchName: branch.branchName,
+    location: branch.location
+  };
+};
+
 const cancelEdit = () => {
-  editingId.value = null
-}
+  editingId.value = null;
 
-// 5. 수정 내용 저장 (PUT)
+  editForm.value = {
+    branchName: "",
+    location: ""
+  };
+};
+
 const saveEdit = async (id) => {
-  if (!editForm.value.branchName.trim() || !editForm.value.location.trim()) {
-    alert('모든 필드를 입력해 주세요.')
-    return
+  if (
+    !editForm.value.branchName.trim() ||
+    !editForm.value.location.trim()
+  ) {
+    alert("모든 필드를 입력해 주세요.");
+    return;
   }
+
+  errorMessage.value = "";
+
   try {
-    await axios.put(`${API_URL}/${id}`, editForm.value)
-    alert('분점 정보가 수정되었습니다.')
-    editingId.value = null
-    fetchBranches()
-    
-    // 만약 현재 열어놓은 상세 정보창과 같은 지점을 수정했다면 자식창도 새로고침 시키기
-    if (selectedBranchId.value === id && detailComponentRef.value) {
-      detailComponentRef.value.refresh()
+    await axios.put(`${API_URL}/${id}`, editForm.value);
+
+    alert("분점 정보가 수정되었습니다.");
+
+    editingId.value = null;
+
+    await fetchBranches();
+
+    if (
+      selectedBranchId.value === id &&
+      detailComponentRef.value
+    ) {
+      detailComponentRef.value.refresh();
     }
   } catch (error) {
-    console.error('수정 실패:', error)
-  }
-}
+    console.error("수정 실패:", error);
 
-// 6. 분점 삭제하기 (DELETE)
+    errorMessage.value =
+      error.response?.data?.message ||
+      error.response?.data ||
+      "분점 정보 수정에 실패했습니다.";
+  }
+};
+
 const deleteBranch = async (id) => {
-  if (!confirm('정말 이 분점을 삭제하시겠습니까?')) return
+  const branch = branches.value.find(
+    (item) => item.id === id
+  );
+
+  const confirmed = confirm(
+    `${branch?.branchName || "선택한 분점"}을 삭제하시겠습니까?`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  errorMessage.value = "";
+
   try {
-    await axios.delete(`${API_URL}/${id}`)
-    alert('분점이 삭제되었습니다.')
+    await axios.delete(`${API_URL}/${id}`);
+
+    alert("분점이 삭제되었습니다.");
+
     if (selectedBranchId.value === id) {
-      selectedBranchId.value = null // 지워진 지점의 하단 자식 상세창은 닫음
+      selectedBranchId.value = null;
     }
-    fetchBranches()
+
+    if (editingId.value === id) {
+      cancelEdit();
+    }
+
+    await fetchBranches();
   } catch (error) {
-    console.error('삭제 실패:', error)
-  }
-}
+    console.error("삭제 실패:", error);
 
-// 7. 목록 운영상태 배지 스타일
+    errorMessage.value =
+      error.response?.data?.message ||
+      error.response?.data ||
+      "분점 삭제에 실패했습니다.";
+  }
+};
+
 const getStatusBadgeClass = (status) => {
-  return {
-    'badge bg-success': status === '정상',
-    'badge bg-warning text-dark': status && status.includes('대기'),
-    'badge bg-danger': status && status.includes('중단'),
-    'badge bg-secondary': status === '기기 없음'
-  }
-}
+  return [
+    "status-badge",
+    {
+      normal: status === "정상",
+      waiting:
+        status?.includes("대기") ||
+        status?.includes("점검"),
+      stopped: status?.includes("중단"),
+      empty:
+        status === "기기 없음" ||
+        !status
+    }
+  ];
+};
 
-onMounted(() => {
-  fetchBranches()
-})
+onMounted(fetchBranches);
 </script>
+
+<style src="../../css/BranchManagementStyle.css"></style>
