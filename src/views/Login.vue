@@ -74,8 +74,7 @@ const handleLogin = async () => {
   try {
     // 💡 상대 경로 대신 포트번호가 포함된 백엔드 "전체 주소"를 직접 작성합니다!
     // 이렇게 하면 Axios 인스턴스의 baseURL에 영향을 받지 않고 정상적인 주소로 다이렉트 맵핑됩니다.
-    const res = await axios.post('http://localhost:8888/api/auth/login', loginForm.value);
-    
+    const res = await axios.post('/api/admin/auth/login', loginForm.value);
     const { role, username, name, branchId } = res.data;
 
     alert(`${name}님, 로그인을 환영합니다!`);
