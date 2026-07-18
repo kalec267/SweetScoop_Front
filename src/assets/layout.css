@@ -1,0 +1,355 @@
+body {
+    background-color: #f3f4f6;
+  }
+  
+  
+  .layout {
+    display: flex;
+    min-height: 100vh;
+    align-items: flex-start;
+  }
+  
+  
+  /* 왼쪽 사이드 */
+  .sidebar {
+  
+    width: 200px;
+  
+    background-color: white;
+  
+    border-right: 1px solid #444;
+  
+    padding: 20px;
+  
+  
+    min-height: 95.7vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  
+  /* 로고 */
+  .logo {
+  
+    display: block;
+  
+    text-decoration: none;
+  
+    font-size: 32px;
+  
+    font-weight: bold;
+  
+    color: #333;
+  
+    margin-left: 40px;
+  
+  }
+  
+  
+  /* 메뉴 박스 */
+  .menu-container {
+  
+    display: flex;
+  
+    flex-direction: column;
+  
+    gap: 15px;
+  
+  }
+  
+  
+  .menu-container h3 {
+  
+    margin-bottom: 10px;
+  
+    color: #555;
+  
+  }
+  
+  
+  .menu-container a {
+  
+    text-decoration: none;
+  
+    color: #333;
+  
+    padding: 12px;
+  
+    border-radius: 8px;
+  
+  }
+  
+  
+  .menu-container a:hover {
+  
+    background-color: #e5e7eb;
+  
+  }
+  .setting {
+  
+    border-top: 1px solid #444;
+  
+    margin-top: 40px;
+  
+    display: flex;
+    flex-direction: column;
+  
+    gap: 15px;
+  
+  }
+  
+  
+  .setting a {
+  
+    text-decoration: none;
+  
+    color: #333;
+  
+    padding: 12px;
+  
+    border-radius: 8px;
+  
+  }
+  
+  
+  .setting a:hover {
+  
+    background-color: #e5e7eb;
+  
+  }
+  
+  .right-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  
+  .top-header{
+  
+    margin:20px 50px 15px 50px;
+    padding:25px 30px;
+  
+    background:white;
+    border-radius:12px;
+    box-shadow:0 5px 20px rgba(0,0,0,0.1);
+  }
+  
+  .top-header h2{
+    margin:0;
+  }
+  
+  /* 카드 영역 */
+  .summary-container{
+    
+    margin:0 50px 20px 50px;
+  
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:20px;
+  }
+  
+  /* 카드 */
+  .summary-card{
+    background:white;
+    border-radius:12px;
+    padding:25px;
+    text-align:center;
+    box-shadow:0 5px 20px rgba(0,0,0,0.1);
+  }
+  
+  .summary-card h4{
+    margin:0;
+    color:#666;
+    font-size:16px;
+  }
+  
+  .summary-card p{
+    margin-top:15px;
+    font-size:32px;
+    font-weight:bold;
+    color:#2563eb;
+  }
+  
+  /* 오른쪽 컨텐츠 */
+  .content-box {
+  
+    margin: 10px 50px 50px 50px;
+  
+    background:white;
+  
+    border-radius:12px;
+  
+    padding:30px;
+  
+    box-shadow:0 5px 20px rgba(0,0,0,0.1);
+  
+  }
+  
+  .title-area {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+  }
+  
+  .title-area h1 {
+    margin: 0;
+  }
+  
+  .title-area button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    background-color: #333;
+    color: white;
+    cursor: pointer;
+  }
+  
+  .title-area button:hover {
+    background-color: #555;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  
+  
+  th, td {
+    padding: 10px;
+    text-align: center;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  
+  /* 컬럼 비율 */
+  th:nth-child(1),
+  td:nth-child(1) {
+    width: 25%;
+  }
+  
+  
+  th:nth-child(2),
+  td:nth-child(2) {
+    width: 25%;
+  }
+  
+  
+  th:nth-child(3),
+  td:nth-child(3) {
+    width: 25%;
+  }
+  
+  th:nth-child(4),
+  td:nth-child(4) {
+    width: 25%;
+  }
+  
+  th:nth-child(5),
+  td:nth-child(5) {
+    width: 25%;
+  }
+  
+  button{
+    margin:2px;
+    background-color: #ffffff;
+    border:1px solid #ced4da;
+    box-shadow:0 5px 5px rgba(0,0,0,0.1);
+  
+      padding: 8px 14px;
+    border-radius: 6px;
+  
+    cursor: pointer;
+  
+    transition: 
+      background-color 0.2s,
+      color 0.2s,
+      transform 0.2s;
+  }
+  
+  button:hover {
+    background-color: #2563eb;
+    color: white;
+    border-color: #2563eb;
+  
+    transform: translateY(-2px);
+  }
+  .deletebtn:hover{
+    background-color: red;
+  }
+  button:active {
+    transform: translateY(0);
+  }
+  button:disabled {
+  
+    background-color: #e5e7eb;
+    color: #9ca3af;
+    border-color: #d1d5db;
+  
+    cursor: not-allowed;
+  
+    transform: none;
+  
+  }
+  .pagination .active {
+  
+    background-color: #2563eb;
+  
+    color: white;
+  
+    border-color: #2563eb;
+  
+    font-weight: bold;
+  
+  }
+  .pagination {
+  
+    margin-top: 25px;
+  
+    display: flex;
+  
+    justify-content: center;
+  
+    align-items: center;
+  
+    gap: 5px;
+  
+  }
+
+  .item-container {
+    width: 400px;
+    margin: 30px auto;
+  }
+  
+  .item-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .form-row {
+    display: flex;
+    align-items: center;
+  }
+  
+  .form-row label {
+    width: 100px;
+    font-weight: bold;
+  }
+  
+  .form-row input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    border-radius: 10px;   /* 둥글게 */
+    outline: none;
+    font-size: 14px;
+  }
+  
+  .form-row input:focus {
+    border-color: #4CAF50;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.4);
+  }
+  */
