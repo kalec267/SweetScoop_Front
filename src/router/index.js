@@ -132,16 +132,16 @@ const routes = [
     },
   },
   {
-    path: "/order-request",
+    path: "/branch/order-request",
     name: "OrderRequest",
     component: OrderRequest,
     meta: {
       requiresAuth: true,
-      role: "BRANCH",
+      role: "HQ"||"BRANCH",
     },
   },
   {
-    path: "/inventory",
+    path: "/branch/inventory",
     name: "Inventory",
     component: Inventory,
     meta: {
@@ -166,9 +166,16 @@ const routes = [
   // 존재하지 않는 주소
   // ==========================================
   {
-    path: "/:pathMatch(.*)*",
-    redirect: "/",
-  },
+      path: "/:pathMatch(.*)*",
+      // 💡 화면이 완전히 깨지거나 멈추지 않도록 빈 컴포넌트 처리를 해줍니다.
+      component: { template: "<div></div>" }, 
+      
+      // 💡 이 주소에 진입하기 직전에 콘솔 로그를 트리거합니다.
+      beforeEnter: (to, from, next) => {
+        alert("존재하지 않는 주소입니다.");
+        next("");
+      },
+    },
 ];
 
 const router = createRouter({
@@ -204,21 +211,6 @@ router.beforeEach((to) => {
     if (userRole === "BRANCH") {
       return "/branch/dashboard";
     }
-  }
-
-  // 특정 권한이 필요한 페이지에서 권한이 일치하지 않는 경우
-  if (to.meta.role && to.meta.role !== userRole) {
-    alert("해당 페이지에 접근할 권한이 없습니다.");
-
-    if (userRole === "HQ") {
-      return "/dashboard";
-    }
-
-    if (userRole === "BRANCH") {
-      return "/branch/dashboard";
-    }
-
-    return "/login";
   }
 
   return true;

@@ -93,6 +93,7 @@ body,
 .main-container {
   width: 100%;
   min-height: 100vh;
+  height: 100vh; overflow-y: auto;
 }
 
 /* 관리자 화면의 메인 영역 */

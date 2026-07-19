@@ -1,35 +1,39 @@
 =====================================================================================
-- VIte.config에서 프록시 설정
-server: {
-    host: "0.0.0.0",
-    port: 5173,
+- 데이터 흐름
+Login.vue에서 보내는 값
 
-    proxy: {
-      "/api": {
-        target: "http://192.168.137.173:8888",
-        changeOrigin: true,
-      },
-    },
-  },
-
-
-- src/api/index.js의 baseURL 설정
-const instance = axios.create({
-  baseURL: 'http://192.168.137.173:8888/',
-  timeout: 5000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true // Spring Security CORS 연동용
+const registerForm = ref({
+  loginId: '',
+  password: '',
+  name: '',
+  branchId: null
 });
 
-
-src/api/axios.js 파일의 baseURL:"" 설정
-const api = axios.create({
-    baseURL:"",
-    headers:{
-        "Content-Type":"application/json"
-    }
+const loginForm = ref({
+  role: 'HQ', 
+  username: '',
+  password: ''
 });
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+[Register]
+
+front(Login.vue)에서 회원가입처리시 handleRegister() 실행 -> API요청 발송 POST /api/admin/auth/register (RegisterController)
+
+RegisterController는 RegisterSaveDto클래스에서 DTO 수집 및 검증 -> RegisterService클래스의 로직 실행 하여 암호화및 DB저장 
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+[login]
+
+마찬가지로 front(Login.vue)에서 로그인시 handleLogin() 실행 -> API요청 발송 POST /api/admin/auth/login (LoginController)
+
+LoginController는 LoginRequestDto 클래스에서 DTO 수집 및 검증 -> AuthService클래스의 로직 실행하여 로그인 처리
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 =====================================================================================
+
+

@@ -66,10 +66,10 @@
             <router-link to="/branch/dashboard" class="menu-item" active-class="active">
               <span class="menu-icon">🏠</span> 지점 홈 (대시보드)
             </router-link>
-            <router-link to="/branch/kiosk-control" class="menu-item" active-class="active">
+            <router-link to="/kiosk-control" class="menu-item" active-class="active">
               <span class="menu-icon">🖥️</span> 키오스크 활성화 (AS-001)
             </router-link>
-            <router-link to="/branch/orders-history" class="menu-item" active-class="active">
+            <router-link to="/orders-history" class="menu-item" active-class="active">
               <span class="menu-icon">🧾</span> 주문 취소/영수증 (AS-003, 004)
             </router-link>
           </div>
@@ -82,7 +82,7 @@
             <span class="arrow-icon">▾</span>
           </button>
           <div class="group-items">
-            <router-link to="/branch/inventory-status" class="menu-item" active-class="active">
+            <router-link to="/branch/inventory" class="menu-item" active-class="active">
               <span class="menu-icon">🍦</span> 실시간 재고 관리 (AS-002)
             </router-link>
             <router-link to="/branch/order-request" class="menu-item" active-class="active">
