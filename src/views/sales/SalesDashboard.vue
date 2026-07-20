@@ -63,7 +63,7 @@
         <!-- [섹션 2] 중간 레이아웃: 주문 유형 및 결제 수단 비율 분석 -->
         <div class="content-grid equal-grid" style="margin-top: 24px;">
           <div class="chart-section mini-chart">
-            <h3>주문 유형 비율 (매장 vs 포장)</h3>
+            <h3>주문 유형 비율</h3>
             <div class="canvas-container-mini">
               <canvas ref="orderTypeChartCanvas"></canvas>
             </div>
@@ -79,7 +79,7 @@
         <!-- [섹션 3] 하단 차트: 시간대별 집중도 분석 -->
         <div class="content-grid" style="margin-top: 24px;">
           <div class="chart-section" style="grid-column: span 2;">
-            <h3>시간대별 방문 및 매출 집중도 분석 (마케팅 인사이트용)</h3>
+            <h3>시간대별 방문 및 매출 집중도 분석</h3>
             <p class="chart-sub" style="font-size: 13px; color: #64748b; margin-top: -8px; margin-bottom: 12px;">
               * 최근 7일/30일 선택 시 각 시간대별 일평균 매출액으로 자동 환산되어 비수기를 파악하기 좋습니다.
             </p>
