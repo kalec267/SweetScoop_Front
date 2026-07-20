@@ -185,14 +185,6 @@
               전체 매출 통계
             </router-link>
 
-            <router-link
-              to="/analytics"
-              class="menu-item"
-              active-class="active"
-            >
-              <span class="menu-icon">📉</span>
-              상세 매출 분석
-            </router-link>
           </div>
         </div>
       </template>
@@ -313,14 +305,6 @@
               지점 매출 통계
             </router-link>
 
-            <router-link
-              to="/analytics"
-              class="menu-item"
-              active-class="active"
-            >
-              <span class="menu-icon">📉</span>
-              상세 매출 분석
-            </router-link>
           </div>
         </div>
 

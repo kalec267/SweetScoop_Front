@@ -47,7 +47,6 @@ const route = useRoute();
  * /inventory/hq-orders
  * /sales
  * /delivery
- * /analytics
  *
  * 일반 화면:
  * /
