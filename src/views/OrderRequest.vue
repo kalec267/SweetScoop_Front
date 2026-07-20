@@ -13,7 +13,7 @@
               <th>신청 번호</th>
               <th>분점명</th>
               <th>신청 물품</th>
-              <th>수량</th>
+              <th>단위</th>
               <th>상태</th>
               <th>처리</th>
             </tr>
@@ -81,7 +81,7 @@
   
   const fetchRequests = async () => {
     try {
-      const res = await axios.get('http://localhost:8888/api/admin/inventory/requests');
+      const res = await axios.get('/api/admin/inventory/requests');
       requestList.value = res.data;
     } catch (err) {
       console.error("데이터 로드 실패", err);
@@ -90,7 +90,7 @@
   
   const handleApproval = async (id, status) => {
     try {
-      await axios.patch(`http://localhost:8888/api/admin/inventory/requests/${id}/approval`, {
+      await axios.patch(`/api/admin/inventory/requests/${id}/approval`, {
         status: status,
         hqManagerId: 'admin_hq'
       });
@@ -103,7 +103,7 @@
   
   const submitRequest = async () => {
     try {
-      await axios.post('http://localhost:8888/api/admin/inventory/requests', newRequest.value);
+      await axios.post('/api/admin/inventory/requests', newRequest.value);
       alert("신규 재고 신청이 완료되었습니다.");
       closeModal();
       fetchRequests();

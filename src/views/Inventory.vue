@@ -39,7 +39,7 @@
   
   const fetchInventory = async () => {
     try {
-      const res = await axios.get(`http://localhost:8888/api/admin/branches/${selectedBranch.value}/inventory`);
+      const res = await axios.get(`/api/admin/branches/${selectedBranch.value}/inventory`);
       inventoryData.value = res.data;
     } catch (err) {
       console.error("재고 데이터 로드 실패", err);

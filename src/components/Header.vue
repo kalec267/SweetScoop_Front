@@ -119,7 +119,7 @@ onMounted(() => {
   userRole.value = localStorage.getItem('userRole') || 'HQ';
 
   // SSE 연결 열기 (본사 어드민 로그인 계정 기준)
-  sseSource = new EventSource('http://localhost:8888/api/admin/sse/connect?adminId=main_hq');
+  sseSource = new EventSource('/api/admin/sse/connect?adminId=main_hq');
 
   // 실시간 알림 수신 리스너 등록
   sseSource.addEventListener('notification', (event) => {

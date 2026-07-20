@@ -1,18 +1,24 @@
+```vue
 <template>
   <aside class="sidebar-container">
+    <!-- 로고 -->
     <div
       class="logo-area"
       @click="goToHome"
     >
       <span class="logo-icon">🍦</span>
+
       <h1 class="logo-title">
         Sweet Scoop
       </h1>
     </div>
 
     <nav class="menu-nav">
-      <!-- 본사 관리자 메뉴 -->
+      <!-- ========================================
+           본사 관리자 전용 메뉴
+      ========================================= -->
       <template v-if="userRole === 'HQ'">
+        <!-- 일반 관리 -->
         <div
           class="menu-group"
           :class="{
@@ -27,6 +33,7 @@
             <span class="group-title">
               📁 일반 관리
             </span>
+
             <span class="arrow-icon">
               ▾
             </span>
@@ -41,6 +48,7 @@
               <span class="menu-icon">
                 📊
               </span>
+
               대시보드
             </router-link>
 
@@ -52,6 +60,7 @@
               <span class="menu-icon">
                 🚚
               </span>
+
               배송 관리
             </router-link>
 
@@ -63,11 +72,61 @@
               <span class="menu-icon">
                 🏪
               </span>
+
               분점 관리
             </router-link>
           </div>
         </div>
 
+        <!-- 본사 물류 및 발주 관리 -->
+        <div
+          class="menu-group"
+          :class="{
+            'is-open': openGroups.hqInventory,
+          }"
+        >
+          <button
+            type="button"
+            class="group-header-btn"
+            @click="toggleGroup('hqInventory')"
+          >
+            <span class="group-title">
+              📦 본사 물류 관리
+            </span>
+
+            <span class="arrow-icon">
+              ▾
+            </span>
+          </button>
+
+          <div class="group-items">
+            <router-link
+              to="/items"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">
+                📋
+              </span>
+
+              물품 관리
+            </router-link>
+
+            <router-link
+              to="/inventory/hq-orders"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">
+                🏢
+              </span>
+
+              본사 발주 승인
+            </router-link>
+          </div>
+        </div>
+
+        <!-- 본사 전용 설정 -->
         <div
           class="menu-group"
           :class="{
@@ -82,6 +141,7 @@
             <span class="group-title">
               ⚙️ 본사 전용 설정
             </span>
+
             <span class="arrow-icon">
               ▾
             </span>
@@ -96,18 +156,8 @@
               <span class="menu-icon">
                 🍒
               </span>
-              메뉴 관리
-            </router-link>
 
-            <router-link
-              to="/items"
-              class="menu-item"
-              active-class="active"
-            >
-              <span class="menu-icon">
-                📦
-              </span>
-              물류 관리
+              메뉴 관리
             </router-link>
 
             <router-link
@@ -118,6 +168,7 @@
               <span class="menu-icon">
                 🎁
               </span>
+
               이벤트 / 배너 관리
             </router-link>
 
@@ -129,16 +180,66 @@
               <span class="menu-icon">
                 💬
               </span>
+
               지점문의 답변
+            </router-link>
+          </div>
+        </div>
+
+        <!-- 본사 분석 -->
+        <div
+          class="menu-group"
+          :class="{
+            'is-open': openGroups.hqAnalysis,
+          }"
+        >
+          <button
+            type="button"
+            class="group-header-btn"
+            @click="toggleGroup('hqAnalysis')"
+          >
+            <span class="group-title">
+              📈 본사 통계 및 분석
+            </span>
+
+            <span class="arrow-icon">
+              ▾
+            </span>
+          </button>
+
+          <div class="group-items">
+            <router-link
+              to="/sales"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">
+                📊
+              </span>
+
+              전체 매출 통계
+            </router-link>
+
+            <router-link
+              to="/analytics"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">
+                📉
+              </span>
+
+              상세 매출 분석
             </router-link>
           </div>
         </div>
       </template>
 
-      <!-- 분점 관리자 메뉴 -->
-      <template
-        v-else-if="userRole === 'BRANCH'"
-      >
+      <!-- ========================================
+           지점 관리자 전용 메뉴
+      ========================================= -->
+      <template v-else-if="userRole === 'BRANCH'">
+        <!-- 지점 운영 관리 -->
         <div
           class="menu-group"
           :class="{
@@ -153,6 +254,7 @@
             <span class="group-title">
               🏪 지점 운영 관리
             </span>
+
             <span class="arrow-icon">
               ▾
             </span>
@@ -167,6 +269,7 @@
               <span class="menu-icon">
                 🏠
               </span>
+
               지점 홈
             </router-link>
 
@@ -178,6 +281,7 @@
               <span class="menu-icon">
                 🖥️
               </span>
+
               키오스크 활성화
             </router-link>
 
@@ -189,28 +293,28 @@
               <span class="menu-icon">
                 🧾
               </span>
-              주문 취소/영수증
+
+              주문 취소 / 영수증
             </router-link>
           </div>
         </div>
 
+        <!-- 지점 재고 관리 -->
         <div
           class="menu-group"
           :class="{
-            'is-open':
-              openGroups.branchInventory,
+            'is-open': openGroups.branchInventory,
           }"
         >
           <button
             type="button"
             class="group-header-btn"
-            @click="
-              toggleGroup('branchInventory')
-            "
+            @click="toggleGroup('branchInventory')"
           >
             <span class="group-title">
               📦 지점 재고 통제
             </span>
+
             <span class="arrow-icon">
               ▾
             </span>
@@ -225,7 +329,8 @@
               <span class="menu-icon">
                 🍦
               </span>
-              실시간 재고 관리
+
+              지점 재고 관리
             </router-link>
 
             <router-link
@@ -236,59 +341,103 @@
               <span class="menu-icon">
                 📨
               </span>
+
               발주 및 자동발주
+            </router-link>
+          </div>
+        </div>
+
+        <!-- 지점 분석 -->
+        <div
+          class="menu-group"
+          :class="{
+            'is-open': openGroups.branchAnalysis,
+          }"
+        >
+          <button
+            type="button"
+            class="group-header-btn"
+            @click="toggleGroup('branchAnalysis')"
+          >
+            <span class="group-title">
+              📈 지점 통계 및 분석
+            </span>
+
+            <span class="arrow-icon">
+              ▾
+            </span>
+          </button>
+
+          <div class="group-items">
+            <router-link
+              to="/sales"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">
+                📊
+              </span>
+
+              지점 매출 통계
+            </router-link>
+
+            <router-link
+              to="/analytics"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">
+                📉
+              </span>
+
+              상세 매출 분석
+            </router-link>
+          </div>
+        </div>
+
+        <!-- 지점 문의 -->
+        <div
+          class="menu-group"
+          :class="{
+            'is-open': openGroups.branchCommunication,
+          }"
+        >
+          <button
+            type="button"
+            class="group-header-btn"
+            @click="toggleGroup('branchCommunication')"
+          >
+            <span class="group-title">
+              💬 지점 문의
+            </span>
+
+            <span class="arrow-icon">
+              ▾
+            </span>
+          </button>
+
+          <div class="group-items">
+            <router-link
+              to="/branch/inquiries"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">
+                💬
+              </span>
+
+              문의사항 관리
             </router-link>
           </div>
         </div>
       </template>
 
-      <!-- 공통 메뉴 -->
+      <!-- 권한 정보가 없는 경우 -->
       <div
-        class="menu-group"
-        :class="{
-          'is-open': openGroups.analysis,
-        }"
+        v-else
+        class="role-empty"
       >
-        <button
-          type="button"
-          class="group-header-btn"
-          @click="toggleGroup('analysis')"
-        >
-          <span class="group-title">
-            📈 소통 및 분석
-          </span>
-          <span class="arrow-icon">
-            ▾
-          </span>
-        </button>
-
-        <div class="group-items">
-          <router-link
-            to="/analytics"
-            class="menu-item"
-            active-class="active"
-          >
-            <span class="menu-icon">
-              📊
-            </span>
-            매출 분석
-          </router-link>
-
-          <router-link
-            :to="
-              userRole === 'HQ'
-                ? '/inquiries'
-                : '/branch/inquiries'
-            "
-            class="menu-item"
-            active-class="active"
-          >
-            <span class="menu-icon">
-              💬
-            </span>
-            문의사항 관리
-          </router-link>
-        </div>
+        로그인 정보가 없습니다.
       </div>
     </nav>
   </aside>
@@ -307,19 +456,27 @@ const userRole = ref("");
 
 const openGroups = ref({
   general: true,
+  hqInventory: true,
   hqOnly: true,
+  hqAnalysis: false,
+
   branchOps: true,
-  branchInventory: false,
-  analysis: false,
+  branchInventory: true,
+  branchAnalysis: false,
+  branchCommunication: false,
 });
 
+/**
+ * 사이드바 메뉴 그룹을 열거나 닫습니다.
+ */
 const toggleGroup = (groupKey) => {
-  if (
-    !Object.prototype.hasOwnProperty.call(
+  const groupExists =
+    Object.prototype.hasOwnProperty.call(
       openGroups.value,
       groupKey
-    )
-  ) {
+    );
+
+  if (!groupExists) {
     return;
   }
 
@@ -327,6 +484,9 @@ const toggleGroup = (groupKey) => {
     !openGroups.value[groupKey];
 };
 
+/**
+ * 로고 클릭 시 권한에 맞는 기본 화면으로 이동합니다.
+ */
 const goToHome = async () => {
   if (userRole.value === "HQ") {
     await router.push({
@@ -349,6 +509,9 @@ const goToHome = async () => {
   });
 };
 
+/**
+ * 로그인할 때 localStorage에 저장한 권한을 가져옵니다.
+ */
 onMounted(() => {
   userRole.value =
     localStorage.getItem("userRole") || "";
@@ -362,17 +525,19 @@ onMounted(() => {
   height: 100vh;
   margin: 0;
   padding: 0;
-  overflow-x: hidden;
 
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+
+  overflow-x: hidden;
 
   color: white;
   background-color: #d13b7d;
   box-sizing: border-box;
 }
 
+/* 로고 영역 */
 .logo-area {
   padding: 24px 20px;
 
@@ -384,6 +549,11 @@ onMounted(() => {
     rgba(255, 255, 255, 0.1);
 
   cursor: pointer;
+  user-select: none;
+}
+
+.logo-area:hover {
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .logo-icon {
@@ -392,10 +562,12 @@ onMounted(() => {
 
 .logo-title {
   margin: 0;
+
   font-size: 18px;
   font-weight: 700;
 }
 
+/* 전체 메뉴 영역 */
 .menu-nav {
   flex: 1;
   min-height: 0;
@@ -409,6 +581,7 @@ onMounted(() => {
   overflow-x: hidden;
 }
 
+/* 메뉴 그룹 */
 .menu-group {
   display: flex;
   flex-direction: column;
@@ -439,6 +612,7 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.08);
 }
 
+/* 화살표 */
 .arrow-icon {
   font-size: 12px;
   transition: transform 0.2s ease;
@@ -448,23 +622,29 @@ onMounted(() => {
   transform: rotate(180deg);
 }
 
+/* 접히는 메뉴 영역 */
 .group-items {
   max-height: 0;
   padding-left: 8px;
-  overflow: hidden;
 
   display: flex;
   flex-direction: column;
 
-  transition: max-height 0.25s
+  overflow: hidden;
+
+  transition:
+    max-height 0.25s
     cubic-bezier(0, 1, 0, 1);
 }
 
 .is-open .group-items {
   max-height: 500px;
-  transition: max-height 0.25s ease-in;
+
+  transition:
+    max-height 0.25s ease-in;
 }
 
+/* 메뉴 링크 */
 .menu-item {
   width: 100%;
   max-width: 100%;
@@ -482,7 +662,9 @@ onMounted(() => {
   font-size: 13.5px;
   text-decoration: none;
 
-  transition: all 0.2s;
+  transition:
+    color 0.2s,
+    background-color 0.2s;
 }
 
 .menu-item:hover {
@@ -492,14 +674,27 @@ onMounted(() => {
 
 .menu-icon {
   width: 18px;
+
+  flex-shrink: 0;
+
   font-size: 16px;
   text-align: center;
-  flex-shrink: 0;
 }
 
+/* 현재 선택된 메뉴 */
 .menu-item.active {
   color: white;
   background: rgba(255, 255, 255, 0.2);
   font-weight: 600;
 }
+
+/* 권한이 없을 때 */
+.role-empty {
+  padding: 20px 12px;
+
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  text-align: center;
+}
 </style>
+```

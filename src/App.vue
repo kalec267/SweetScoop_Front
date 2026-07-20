@@ -1,3 +1,4 @@
+```vue
 <template>
   <div id="app-container">
     <div
@@ -14,6 +15,7 @@
         <!-- 관리자 화면에서만 헤더 표시 -->
         <Header v-if="showNavigation" />
 
+        <!-- 현재 URL에 해당하는 페이지 출력 -->
         <main class="content-router-view">
           <RouterView />
         </main>
@@ -24,7 +26,10 @@
 
 <script setup>
 import { computed } from "vue";
-import { RouterView, useRoute } from "vue-router";
+import {
+  RouterView,
+  useRoute,
+} from "vue-router";
 
 import Sidebar from "./components/Sidebar.vue";
 import Header from "./components/Header.vue";
@@ -35,14 +40,16 @@ const route = useRoute();
  * requiresAuth가 true인 관리자 페이지에서만
  * Sidebar와 Header를 표시합니다.
  *
- * 표시되는 페이지 예:
+ * 관리자 화면:
  * /dashboard
  * /branch/dashboard
  * /inventory
+ * /inventory/hq-orders
+ * /sales
  * /delivery
  * /analytics
  *
- * 표시되지 않는 페이지 예:
+ * 일반 화면:
  * /
  * /size
  * /cup
@@ -82,26 +89,28 @@ body,
   min-height: 100vh;
 }
 
-/* 관리자 화면 레이아웃 */
+/* 관리자 화면 전체 레이아웃 */
 .app-layout.admin-layout {
   display: flex;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100vh;
   overflow: hidden;
 }
 
+/* 메인 화면 영역 */
 .main-container {
   width: 100%;
   min-height: 100vh;
 }
 
-/* 관리자 화면의 메인 영역 */
+/* 사이드바가 있는 관리자 화면 */
 .admin-layout .main-container {
   flex: 1;
   display: flex;
   flex-direction: column;
   width: auto;
   height: 100vh;
+  min-width: 0;
   min-height: 0;
   overflow-y: auto;
   background-color: #f8fafc;
@@ -114,10 +123,12 @@ body,
   background-color: transparent;
 }
 
-/* 라우터 화면 출력 영역 */
+/* 라우터 페이지 출력 영역 */
 .content-router-view {
   flex: 1;
   width: 100%;
+  min-width: 0;
   min-height: 0;
 }
 </style>
+```

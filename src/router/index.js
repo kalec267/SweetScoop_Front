@@ -59,20 +59,17 @@ const routes = [
   {
     path: "/payment",
     name: "Payment",
-    component: () =>
-      import("@/views/Payment.vue"),
+    component: () => import("@/views/Payment.vue"),
   },
   {
     path: "/payment/success",
     name: "PaymentSuccess",
-    component: () =>
-      import("@/views/PaymentSuccess.vue"),
+    component: () => import("@/views/PaymentSuccess.vue"),
   },
   {
     path: "/complete",
     name: "OrderComplete",
-    component: () =>
-      import("@/views/OrderComplete.vue"),
+    component: () => import("@/views/OrderComplete.vue"),
   },
 
   // ==========================================
@@ -139,11 +136,6 @@ const routes = [
   // ==========================================
   // 본사 관리자 물품 관리
   // ==========================================
-  /*
-   * App.vue에서 이미 Sidebar, Header를 출력하므로
-   * AdminLayout 중첩 라우트를 사용하지 않고
-   * 각 화면을 직접 RouterView에 출력합니다.
-   */
   {
     path: "/items",
     name: "ItemList",
@@ -196,11 +188,39 @@ const routes = [
   },
   {
     path: "/inventory",
-    name: "Inventory",
-    component: Inventory,
+    name: "BranchInventory",
+    component: () =>
+      import("../views/inventory/BranchInventoryView.vue"),
     meta: {
       requiresAuth: true,
       role: "BRANCH",
+    },
+  },
+
+  // ==========================================
+  // 본사 재고 주문 관리
+  // ==========================================
+  {
+    path: "/inventory/hq-orders",
+    name: "HqOrderManagement",
+    component: () =>
+      import("../views/inventory/HqOrderManagement.vue"),
+    meta: {
+      requiresAuth: true,
+      role: "HQ",
+    },
+  },
+
+  // ==========================================
+  // 매출 관리
+  // ==========================================
+  {
+    path: "/sales",
+    name: "SalesDashboard",
+    component: () =>
+      import("../views/sales/SalesDashboard.vue"),
+    meta: {
+      requiresAuth: true,
     },
   },
 
@@ -227,7 +247,7 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes,
 });
 
@@ -256,40 +276,23 @@ const getDefaultRouteByRole = (role) => {
 // 로그인 및 권한 검증
 // ==========================================
 router.beforeEach((to) => {
-  const userRole =
-    localStorage.getItem("userRole");
+  const userRole = localStorage.getItem("userRole");
 
   const isAuthenticated =
-    userRole === "HQ" ||
-    userRole === "BRANCH";
+    userRole === "HQ" || userRole === "BRANCH";
 
-  /*
-   * 이동하려는 경로 중 requiresAuth가 true인
-   * 라우트가 있는지 확인합니다.
-   */
   const requiresAuth = to.matched.some(
     (routeRecord) =>
       routeRecord.meta.requiresAuth === true
   );
 
-  /*
-   * 해당 페이지에 필요한 권한을 찾습니다.
-   */
   const requiredRole = to.matched
-    .map(
-      (routeRecord) =>
-        routeRecord.meta.role
-    )
+    .map((routeRecord) => routeRecord.meta.role)
     .find(Boolean);
 
   // 로그인이 필요한 페이지인데 로그인하지 않은 경우
-  if (
-    requiresAuth &&
-    !isAuthenticated
-  ) {
-    window.alert(
-      "로그인이 필요한 서비스입니다."
-    );
+  if (requiresAuth && !isAuthenticated) {
+    window.alert("로그인이 필요한 서비스입니다.");
 
     return {
       name: "Login",
@@ -300,27 +303,15 @@ router.beforeEach((to) => {
   }
 
   // 로그인한 사용자가 로그인 페이지에 접근한 경우
-  if (
-    to.name === "Login" &&
-    isAuthenticated
-  ) {
-    return getDefaultRouteByRole(
-      userRole
-    );
+  if (to.name === "Login" && isAuthenticated) {
+    return getDefaultRouteByRole(userRole);
   }
 
   // 해당 페이지의 권한과 사용자 권한이 다른 경우
-  if (
-    requiredRole &&
-    requiredRole !== userRole
-  ) {
-    window.alert(
-      "해당 페이지에 접근할 권한이 없습니다."
-    );
+  if (requiredRole && requiredRole !== userRole) {
+    window.alert("해당 페이지에 접근할 권한이 없습니다.");
 
-    return getDefaultRouteByRole(
-      userRole
-    );
+    return getDefaultRouteByRole(userRole);
   }
 
   return true;

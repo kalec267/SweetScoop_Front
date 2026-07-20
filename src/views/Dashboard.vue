@@ -98,7 +98,7 @@
               <th>신청 번호</th>
               <th>분점명</th>
               <th>신청 메뉴</th>
-              <th>수량</th>
+              <th>단위</th>
               <th>신청일</th>
               <th>상태</th>
               <th>처리</th>
@@ -217,10 +217,10 @@ const requests = ref([
 // 3. 백엔드 실시간 API 호출 연동 (JPA 구성 완료 시 실데이터 바인딩)
 const fetchDashboardData = async () => {
   try {
-    const summaryRes = await axios.get('http://localhost:8888/api/admin/dashboard/summary');
+    const summaryRes = await axios.get('/api/admin/dashboard/summary');
     summary.value = summaryRes.data;
     
-    const requestsRes = await axios.get('http://localhost:8888/api/admin/inventory/requests');
+    const requestsRes = await axios.get('/api/admin/inventory/requests');
     requests.value = requestsRes.data;
   } catch (error) {
     console.log('초기 개발 단계를 위해 기존 Mock 구조화 데이터 레이아웃을 표시합니다.');
@@ -230,7 +230,7 @@ const fetchDashboardData = async () => {
 // 4. 상태 변경 비즈니스 이벤트 (승인/반려 PATCH 요청)
 const updateStatus = async (requestId, nextStatus) => {
   try {
-    await axios.patch(`http://localhost:8888/api/admin/inventory/requests/${requestId}/approval`, {
+    await axios.patch(`/api/admin/inventory/requests/${requestId}/approval`, {
       status: nextStatus,
       hqManagerId: 'admin_hq'
     });

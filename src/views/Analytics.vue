@@ -43,7 +43,7 @@
   
   const fetchSalesData = async () => {
     try {
-      const res = await axios.get('http://localhost:8888/api/admin/sales/daily');
+      const res = await axios.get('/api/admin/sales/daily');
       salesData.value = res.data;
     } catch (err) {
       // 백엔드 연결 전 Mock 임시 수치 데이터 예시

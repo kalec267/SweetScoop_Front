@@ -51,7 +51,7 @@
 
         <div class="form-group">
           <label for="unit">
-            단위 <span>*</span>
+          수량 <span>*</span>
           </label>
           <input
             id="unit"

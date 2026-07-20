@@ -109,7 +109,7 @@ const orderForm = ref({ itemId: 1, quantity: 1 });
 // 1. 백엔드로부터 해당 지점의 실시간 재고 목록 가져오기
 const fetchBranchInventory = async () => {
   try {
-    const res = await axios.get(`http://localhost:8888/api/admin/branches/${branchId.value}/inventory`);
+    const res = await axios.get(`/api/admin/branches/${branchId.value}/inventory`);
     
     branchInventory.value = res.data.map(inv => ({
       itemId: inv.item.id,
@@ -130,7 +130,7 @@ const fetchBranchInventory = async () => {
 // 2. 본사 신청(발주) 내역 백엔드에서 조회해오기 (수량 필드명 requestQuantity로 수정)
 const fetchMyRequests = async () => {
   try {
-    const res = await axios.get(`http://localhost:8888/api/admin/branches/${branchId.value}/orders`);
+    const res = await axios.get(`/api/admin/branches/${branchId.value}/orders`);
     
     myRequests.value = res.data.map(order => {
       // 안전하게 날짜 포맷팅 (YYYY.MM.DD)
@@ -168,7 +168,7 @@ const submitOrder = async () => {
     };
 
     // 본사로 발주 신청 전송
-    await axios.post('http://localhost:8888/api/admin/branches/orders', payload);
+    await axios.post('/api/admin/branches/orders', payload);
     
     alert("본사로 재고 신청이 안전하게 전달되었습니다.");
     closeOrderModal();

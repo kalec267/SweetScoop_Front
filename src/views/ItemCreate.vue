@@ -49,7 +49,7 @@
             placeholder="예: g, kg, ea, ml"
             required
           />
-          <small>수량을 관리할 때 사용하는 단위를 입력합니다.</small>
+          <small></small>
         </div>
 
         <div class="form-group full">

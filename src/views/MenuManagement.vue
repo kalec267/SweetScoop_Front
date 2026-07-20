@@ -181,7 +181,7 @@ const setPage = (page) => {
 
 const fetchMenus = async () => {
   try {
-    const res = await axios.get('http://localhost:8888/api/admin/menus');
+    const res = await axios.get('/api/admin/menus');
     menus.value = res.data;
   } catch (error) {
     console.error("메뉴 로드 실패");
