@@ -1,56 +1,111 @@
 <template>
-  <div v-if="branchId" class="card mt-5 border-info shadow animate-fade-in">
+  <!-- v-if 조건부 렌더링 및 제공해주신 .detail-section 클래스 적용 -->
+  <div v-if="branchId" class="detail-section content-card">
     
-    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center py-3">
-      <h5 class="mb-0 fw-bold">🎯 {{ branchData?.branchName }} 상세 정보 및 기기 현황</h5>
-      <button @click="closeDetail" class="btn-close btn-close-white" title="닫기"></button>
+    <!-- 카드 헤더 영역 -->
+    <div class="card-heading" style="border-bottom: 1px solid rgba(219, 226, 234, 0.5); align-items: center;">
+      <div>
+        <h2>🎯 {{ branchData?.branchName || '로딩 중...' }} 상세 정보</h2>
+        <p>분점의 상세 위치와 개별 키오스크 기기들의 실시간 가동 현황을 확인합니다.</p>
+      </div>
+      <!-- CSS의 action-button cancel 스타일을 활용한 닫기 버튼 -->
+      <button @click="closeModal" class="action-button cancel" title="닫기" style="height: 38px; min-width: 65px;">
+        닫기
+      </button>
     </div>
     
-    <div class="card-body p-4" v-if="branchData">
+    <!-- 데이터 로드 완료 시 표출 영역 -->
+    <div style="padding: 26px;" v-if="branchData">
       
-      <div class="row g-3 mb-4">
-        <div class="col-md-4">
-          <div class="p-3 bg-light rounded border border-start-4 border-primary">
-            <div class="text-muted small">📍 분점 위치</div>
-            <div class="fs-5 fw-bold text-dark mt-1">{{ branchData.location }}</div>
+      <!-- 상단 요약 그리드 (3칸 배치 고정) -->
+      <div class="summary-grid" :style="{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }">
+        <!-- 1. 위치 정보 -->
+        <div class="summary-card">
+          <div class="summary-icon blue">📍</div>
+          <div>
+            <span class="summary-label">분점 위치</span>
+            <strong>{{ branchData.location || '-' }}</strong>
           </div>
         </div>
-        <div class="col-md-4">
-          <div class="p-3 bg-light rounded border border-start-4 border-dark">
-            <div class="text-muted small">🖥️ 총 키오스크 대수</div>
-            <div class="fs-5 fw-bold text-dark mt-1">{{ branchData.kiosks?.length || 0 }} 대</div>
+        
+        <!-- 2. 키오스크 대수 -->
+        <div class="summary-card">
+          <div class="summary-icon orange">🖥️</div>
+          <div>
+            <span class="summary-label">총 키오스크 대수</span>
+            <strong>{{ branchData.kiosks?.length || 0 }}대</strong>
           </div>
         </div>
-        <div class="col-md-4">
-          <div class="p-3 bg-light rounded border border-start-4 border-success">
-            <div class="text-muted small">📊 통합 운영 상태</div>
-            <div class="mt-1">
-              <span :class="getStatusBadgeClass(branchData.status) + ' fs-6 px-3 py-1'">
-                {{ branchData.status }}
+        
+        <!-- 3. 통합 운영 상태 -->
+        <div class="summary-card">
+          <div class="summary-icon green">📊</div>
+          <div>
+            <span class="summary-label">통합 운영 상태</span>
+            <div style="margin-top: 4px;">
+              <span :class="['status-badge', getStatusBadgeClass(branchData.status)]">
+                <span class="status-dot"></span>
+                {{ branchData.status || '정보 없음' }}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      <h5 class="fw-bold mb-3 text-secondary border-bottom pb-2">🖥️ 개별 키오스크 기기 리스트</h5>
+      <!-- 하단 키오스크 리스트 섹션 -->
+      <h2 style="font-size: 18px; font-weight: 800; margin: 28px 0 16px; color: #253047;">
+        🖥️ 개별 키오스크 기기 가동 현황
+      </h2>
       
-      <div v-if="!branchData.kiosks || branchData.kiosks.length === 0" class="text-center my-5 text-muted">
-        이 분점에 등록된 키오스크 기기가 존재하지 않습니다.
+      <!-- 키오스크가 없을 때 -->
+      <div v-if="!branchData.kiosks || branchData.kiosks.length === 0" class="table-state empty-state">
+        <span>📭</span>
+        <strong>등록된 기기 없음</strong>
+        <p>이 분점에 등록된 키오스크 기기가 존재하지 않습니다.</p>
       </div>
       
-      <div v-else class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-3">
-        <div v-for="(kiosk, index) in branchData.kiosks" :key="kiosk.id" class="col">
-          <div class="card text-center h-100 border border-light-subtle shadow-sm">
-            <div class="card-body py-4">
-              <div class="text-muted small mb-1">기기 고유 ID: {{ kiosk.id }}</div>
-              <h5 class="fw-bold text-primary mb-3">{{ index + 1 }}호기 키오스크</h5>
-              <span :class="getKioskBadgeClass(kiosk.status)">{{ kiosk.status }}</span>
-            </div>
-          </div>
-        </div>
+      <!-- 🌟 수정 포인트: 테이블 열 정렬 및 너비 고정화 -->
+      <div v-else class="table-container" style="border: 1px solid #edf1f5; border-radius: 12px; overflow: hidden;">
+        <!-- table-layout: fixed를 주어 지정한 너비 비율이 강제 적용되도록 만듭니다 -->
+        <table class="branch-table" style="min-width: 100%; table-layout: fixed;">
+          <thead>
+            <tr>
+              <!-- 각 헤더(th)에 명확한 너비 비율(%)을 지정해 칸이 뒤죽박죽 섞이지 않게 잡았습니다 -->
+              <th class="center" style="width: 10%;">번호</th>
+              <th style="width: 30%;">기기 고유 ID</th>
+              <th style="width: 35%;">기기 명칭</th>
+              <th class="center" style="width: 25%;">가동 상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(kiosk, index) in branchData.kiosks" :key="kiosk.id">
+              <td class="center">
+                <span class="branch-id">{{ index + 1 }}</span>
+              </td>
+              <!-- text-overflow 속성 추가로 혹시 ID가 유독 길어져도 칸을 부수지 않도록 방어했습니다 -->
+              <td style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <strong style="font-family: Consolas, monospace; color: #4f46e5;">{{ kiosk.id }}</strong>
+              </td>
+              <td style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <strong style="color: #253047;">{{ index + 1 }}호기 키오스크</strong>
+              </td>
+              <td class="center">
+                <span :class="['status-badge', getKioskBadgeClass(kiosk.status)]">
+                  <span class="status-dot"></span>
+                  {{ kiosk.status || '알 수 없음' }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
+    </div>
+    
+    <!-- 로딩 중일 때 -->
+    <div class="table-state" v-else>
+      <div class="spinner"></div>
+      <p>분점 상세 데이터를 불러오는 중입니다...</p>
     </div>
   </div>
 </template>
@@ -59,65 +114,78 @@
 import { ref, watch } from 'vue'
 import axios from 'axios'
 
-// 💡 부모(List) 컴포넌트로부터 받아올 데이터 정의
+// 1. Props 및 Emits 선언
 const props = defineProps({
   branchId: {
-    type: Number,
+    type: [Number, String],
     default: null
   }
 })
 
-// 💡 부모 컴포넌트에게 이벤트를 보내기 위한 에밋 설정
 const emit = defineEmits(['close', 'refresh-list'])
 
+// 2. 상태(State) 선언
 const branchData = ref(null)
 const API_URL = '/api/admin/branches'
 
-// 💡 부모가 준 branchId가 바뀔 때마다 자동으로 백엔드 데이터 실시간 동적 로드
+// 3. API 통신 함수
+const fetchBranchDetail = async (id) => {
+  try {
+    const cleanId = String(id).trim()
+    console.log(`[BranchDetail] 백엔드 API 요청 시작 -> 주소: ${API_URL}/${cleanId}`)
+    
+    const response = await axios.get(`${API_URL}/${cleanId}`)
+    branchData.value = response.data
+    
+    console.log('[BranchDetail] 백엔드 데이터 로드 성공:', response.data)
+  } catch (error) {
+    console.error('❌ [BranchDetail] 상세 정보 로드 실패!')
+    if (error.response) {
+      console.error(`- 에러 코드(Status): ${error.response.status}`)
+      console.error('- 에러 내용(Data):', error.response.data)
+    } else if (error.request) {
+      console.error('- 서버로부터 응답을 받지 못했습니다. 백엔드가 가동 중인지 확인하세요.')
+    } else {
+      console.error('- 요청 설정 내부 에러:', error.message)
+    }
+    alert('상세 정보를 불러올 수 없습니다. 개발자 도구(F12) 콘솔 창을 확인해 주세요.')
+  }
+}
+
+// 4. 관찰자(Watch) 설정
 watch(() => props.branchId, (newId) => {
   if (newId) {
+    console.log(`[BranchDetail] branchId 변경 감지 -> 새로운 ID: ${newId}`)
     fetchBranchDetail(newId)
   } else {
     branchData.value = null
   }
 }, { immediate: true })
 
-// 특정 분점 상세조회 통신 (GET)
-const fetchBranchDetail = async (id) => {
-  try {
-    const response = await axios.get(`${API_URL}/${id}`)
-    branchData.value = response.data
-  } catch (error) {
-    console.error('상세 정보 로드 실패:', error)
-    alert('상세 정보를 불러올 수 없습니다.')
-  }
-}
-
-// 닫기 버튼 이벤트 전송
+// 5. 컴포넌트 폐쇄 기능
 const closeModal = () => {
   emit('close')
 }
 
-// 통합 운영 상태 디자인 배지
+// 6. 통합 상태 클래스 매칭 기능
 const getStatusBadgeClass = (status) => {
-  return {
-    'badge bg-success': status === '정상',
-    'badge bg-warning text-dark': status && status.includes('대기'),
-    'badge bg-danger': status && status.includes('중단'),
-    'badge bg-secondary': status === '기기 없음'
-  }
+  if (!status) return 'empty'
+  if (status === '정상') return 'normal'
+  if (status.includes('대기')) return 'waiting'
+  if (status.includes('중단')) return 'stopped'
+  return 'empty'
 }
 
-// 개별 키오스크 디자인 배지
+// 7. 개별 키오스크 상태 클래스 매칭 기능
 const getKioskBadgeClass = (status) => {
-  return {
-    'badge px-3 py-2 bg-success-subtle text-success border border-success': status === '정상',
-    'badge px-3 py-2 bg-danger-subtle text-danger border border-danger': status === '장애',
-    'badge px-3 py-2 bg-dark-subtle text-dark border border-secondary': status === '꺼짐'
-  }
+  if (!status) return 'empty'
+  if (status === '정상') return 'normal'
+  if (status === '장애' || status === '점검') return 'stopped'
+  if (status === '꺼짐') return 'empty'
+  return 'waiting'
 }
 
-// 외부에서 호출할 수 있도록 리프레시 기능 열어두기 (부모가 정보 수정 시 호출용)
+// 부모 컴포넌트 제어용 노출
 defineExpose({
   refresh: () => {
     if (props.branchId) fetchBranchDetail(props.branchId)
