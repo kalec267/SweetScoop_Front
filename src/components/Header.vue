@@ -43,16 +43,16 @@
 
           <!-- 💡 [본사 관리자 HQ 전용 바로가기 링크] -->
           <template v-if="userRole === 'HQ'">
-            <router-link to="/menu-management" class="dropdown-item" @click="isDropdownOpen = false">🍒 맛 관리</router-link>
-            <router-link to="/event-management" class="dropdown-item" @click="isDropdownOpen = false">🎁 이벤트 / 배너 관리</router-link>
-            <router-link to="/inquiries" class="dropdown-item" @click="isDropdownOpen = false">💬 지점문의 답변</router-link>
+            <!-- <router-link to="/menu-management" class="dropdown-item" @click="isDropdownOpen = false">🍒 맛 관리</router-link> -->
+            <!-- <router-link to="/event-management" class="dropdown-item" @click="isDropdownOpen = false">🎁 이벤트 / 배너 관리</router-link>
+            <router-link to="/inquiries" class="dropdown-item" @click="isDropdownOpen = false">💬 지점문의 답변</router-link> -->
           </template>
 
           <!-- 💡 [분점 관리자 BRANCH 전용 바로가기 링크] -->
           <template v-else-if="userRole === 'BRANCH'">
             <router-link to="/branch/dashboard" class="dropdown-item" @click="isDropdownOpen = false">🏠 지점 홈</router-link>
-            <router-link to="/branch/inventory" class="dropdown-item" @click="isDropdownOpen = false">🍦 실시간 재고 관리</router-link>
-            <router-link to="/branch/order-request" class="dropdown-item" @click="isDropdownOpen = false">📨 발주 신청</router-link>
+            <!-- <router-link to="/branch/inventory" class="dropdown-item" @click="isDropdownOpen = false">🍦 실시간 재고 관리</router-link>
+            <router-link to="/branch/order-request" class="dropdown-item" @click="isDropdownOpen = false">📨 발주 신청</router-link> -->
           </template>
 
           <hr />

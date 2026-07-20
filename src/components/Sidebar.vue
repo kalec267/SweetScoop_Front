@@ -1,4 +1,3 @@
-`` `vue
 <template>
   <aside class="sidebar-container">
     <!-- 로고 -->
@@ -6,16 +5,16 @@
       class="logo-area"
       @click="goToHome"
     >
-      <span class="logo-icon">🍦</span>
+      <span class="logo-icon"></span>
 
       <h1 class="logo-title">
-        Sweet Scoop
+        SweetScoop 관리자
       </h1>
     </div>
 
     <nav class="menu-nav">
       <!-- ========================================
-           본사 관리자 전용 메뉴
+          본사 관리자 전용 메뉴
       ========================================= -->
       <template v-if="userRole === 'HQ'">
         <!-- 일반 관리 -->
@@ -543,27 +542,23 @@ onMounted(() => {
   overflow-x: hidden;
 
   color: white;
-  background-color: #d13b7d;
+  background-color: white;
   box-sizing: border-box;
 }
 
 /* 로고 영역 */
 .logo-area {
+  /* 그라데이션 배경 적용 */
+  background: linear-gradient(90deg, #d65b8e 0%, #6b73f1 100%);
+  
   padding: 24px 20px;
-
   display: flex;
   align-items: center;
-  gap: 10px;
-
-  border-bottom: 1px solid
-    rgba(255, 255, 255, 0.1);
-
+  gap: 25px;
+  color: white; /* 텍스트 및 아이콘 색상 */
+  
   cursor: pointer;
   user-select: none;
-}
-
-.logo-area:hover {
-  background: rgba(255, 255, 255, 0.06);
 }
 
 .logo-icon {
@@ -572,9 +567,9 @@ onMounted(() => {
 
 .logo-title {
   margin: 0;
-
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
+  color: white;
 }
 
 /* 전체 메뉴 영역 */
@@ -615,6 +610,7 @@ onMounted(() => {
   text-align: left;
 
   cursor: pointer;
+  color: black;
 }
 
 .group-header-btn:hover {
@@ -668,8 +664,9 @@ onMounted(() => {
   border-radius: 8px;
   box-sizing: border-box;
 
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 13.5px;
+  color: black;
+  font-size: 16px;
+  font-weight: 600;
   text-decoration: none;
 
   transition:
@@ -693,7 +690,7 @@ onMounted(() => {
 
 /* 현재 선택된 메뉴 */
 .menu-item.active {
-  color: white;
+  color: black;
   background: rgba(255, 255, 255, 0.2);
   font-weight: 600;
 }
@@ -707,4 +704,3 @@ onMounted(() => {
   text-align: center;
 }
 </style>
-` ``

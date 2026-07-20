@@ -130,19 +130,18 @@ button {
 
 .banner-frame {
     width: 100%;
-    height: 100%;
-    max-height: 52vh;
-    padding: 8px;
-    border: 2px solid #ff93c7;
-    border-radius: 15px;
-    background: #fff;
+    height: 55vh;
+    max-height: 550px;
+    padding: 0;
+    overflow: hidden;
 }
 
 .banner-image {
     width: 100%;
     height: 100%;
     display: block;
-    object-fit: contain;
+    object-fit: cover;
+    border-radius: 10px;
 }
 
 /* 매장/포장 선택 */
