@@ -1,127 +1,216 @@
+<!-- src/views/PaymentSuccess.vue -->
 <template>
-  <div class="loading-container">
-    <div v-if="isProcessing">
-      <div class="spinner"></div>
-      <h2>토스페이먼츠 결제 승인 요청 중...</h2>
-      <p>{{ processingMessage }}</p>
+    <div class="loading-container">
+        <div v-if="isProcessing">
+            <div class="spinner"></div>
+            <h2>토스페이먼츠 결제 승인 요청 중...</h2>
+            <p>{{ processingMessage }}</p>
+        </div>
+
+        <div v-else class="error-container">
+            <h2>결제 처리 중 오류가 발생했습니다.</h2>
+            <p class="error-msg">{{ errorMessage }}</p>
+
+            <button type="button" @click="goHome">
+                처음으로
+            </button>
+        </div>
     </div>
-    <div v-else class="error-container">
-      <h2>결제 처리 중 에러가 발생했습니다.</h2>
-      <p class="error-msg">{{ errorMessage }}</p>
-    </div>
-  </div>
 </template>
 
-<script setup>
-import { onMounted, ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import api from "../api/axios"; // 프로젝트 내 API 경로
+<script setup="setup">
+    import {onMounted, ref} from "vue";
+    import {useRoute, useRouter} from "vue-router";
+    import api from "../api/axios";
 
-const route = useRoute();
-const router = useRouter();
+    const route = useRoute();
+    const router = useRouter();
 
-const processingMessage = ref("잠시만 기다려주시면 영수증 발행이 완료됩니다.");
-const isProcessing = ref(true);
-const errorMessage = ref("");
+    const processingMessage = ref("잠시만 기다려주시면 영수증 발행이 완료됩니다.");
+    const isProcessing = ref(true);
+    const errorMessage = ref("");
 
-const confirmPayment = async () => {
-    // 1. 데이터 가져오기
-    const savedPaymentData = sessionStorage.getItem("paymentData");
-    if (!savedPaymentData) throw new Error("결제 정보를 찾을 수 없습니다.");
-    
-    const paymentData = JSON.parse(savedPaymentData);
-    const paymentKey = String(route.query.paymentKey || "");
-    const tossOrderId = String(route.query.orderId || "");
-    const amount = Number(route.query.amount || 0);
-    const realOrderId = Number(paymentData.realOrderId);
+    const createFallbackItems = paymentData => {
+        const sourceItems = paymentData.orderData
+            ?.cartItems || paymentData.orderData
+                ?.items || [];
 
-    // 2. 서버 결제 승인 API 호출
-    const confirmResponse = await api.post("/api/payments/toss-confirm", {
-        orderId: realOrderId,
-        tossOrderId,
-        paymentKey,
-        amount,
-        method: paymentData.paymentMethod
-    });
-    
-    console.log("서버에서 온 응답 데이터(confirmResponse.data):", confirmResponse.data);
-    console.log("주문 정보 데이터(paymentData):", paymentData);
-    console.log("아이템이 담겨있을 곳 추적:", paymentData.orderData);
-
-    if (confirmResponse.data?.success === false) throw new Error("결제 승인 실패");
-
-    // 3. 포인트 적립 (필요 시)
-    const member = paymentData.orderData?.member;
-    if (member?.isMember === true && member.memberId) {
-        await api.post("/api/order/members/reward", {
-            memberId: member.memberId,
-            orderId: realOrderId,
-            paymentAmount: amount
-        });
-    }
-
-    // 4. receipt 객체 생성
-    const receipt = {
-        orderId: confirmResponse.data.receipt?.orderId || realOrderId,
-        receiptNo: confirmResponse.data.receipt?.receiptNo || "N/A",
-        waitingNo: confirmResponse.data.receipt?.waitingNo || "N/A",
-        orderTime: confirmResponse.data.receipt?.orderTime || new Date().toLocaleString(),
-        
-        // 메뉴 정보 매핑
-        items: [
-            ...(paymentData.orderData.iceCream ? [{
-                menuName: `${paymentData.orderData.iceCream.sizeName} (${
-                    (paymentData.orderData.iceCream.flavors || [])
-                        .map(f => f.name)
-                        .join(', ')
-                })`,
-                price: paymentData.orderData.iceCream.totalPrice || 0,
-                quantity: 1
-            }] : []),
-            ...(paymentData.orderData.coffee?.length > 0 ? paymentData.orderData.coffee.map(c => ({
-                menuName: c.name || '커피',
-                price: c.price || 0,
-                quantity: c.qty || 1
-            })) : []),
-            ...(paymentData.orderData.mochi?.length > 0 ? paymentData.orderData.mochi.map(m => ({
-                menuName: m.name || '모찌',
-                price: m.price || 0,
-                quantity: m.qty || 1
-            })) : [])
-        ],
-        
-        paymentMethod: paymentData.paymentMethod,
-        cardCompany: confirmResponse.data.receipt?.cardCompany || "신용카드",
-        totalPrice: confirmResponse.data.receipt?.totalPrice || amount
+        return sourceItems.map((item, index) => ({
+            orderItemId: item.cartItemId || index,
+            menuName: item.name || item.menus?.map(menu => menu.name).join(", ") || "상품",
+            price: Number(item.unitPrice ?? item.totalPrice ?? 0),
+            totalPrice: Number(item.unitPrice ?? item.totalPrice ?? 0) * Number(
+                item.quantity || 1
+            ),
+            quantity: Number(item.quantity || 1)
+        }));
     };
 
-    // 5. 세션 클리어 및 페이지 이동
-    sessionStorage.removeItem("paymentData");
-    sessionStorage.removeItem("orderData");
+    const confirmPayment = async () => {
+        const savedPaymentData = sessionStorage.getItem("paymentData");
 
-    router.replace({
-        name: "OrderComplete",
-        query: { data: JSON.stringify(receipt) }
+        if (!savedPaymentData) {
+            throw new Error("결제 정보를 찾을 수 없습니다.");
+        }
+
+        const paymentData = JSON.parse(savedPaymentData);
+
+        const paymentKey = String(route.query.paymentKey || "");
+        const tossOrderId = String(route.query.orderId || "");
+        const amount = Number(route.query.amount || 0);
+        const realOrderId = Number(paymentData.realOrderId);
+
+        if (!paymentKey || !tossOrderId || amount <= 0 || !realOrderId) {
+            throw new Error("결제 승인 정보가 올바르지 않습니다.");
+        }
+
+        /*
+   * 포인트 차감·적립과 쿠폰 사용 처리는
+   * PaymentService에서 하나의 트랜잭션으로 처리한다.
+   * 별도의 reward API를 다시 호출하면 중복 적립될 수 있으므로 호출하지 않는다.
+   */
+        const confirmResponse = await api.post("/api/payments/toss-confirm", {
+            orderId: String(realOrderId),
+            tossOrderId,
+            paymentKey,
+            amount,
+            method: paymentData.paymentMethod,
+            phoneNumber: paymentData.phoneNumber || null,
+            couponId: paymentData.couponId ?? null,
+            pointUsed: Number(paymentData.pointUsed || 0)
+        });
+
+        if (
+            confirmResponse.data
+                ?.success !== true
+        ) {
+            throw new Error(
+                confirmResponse.data
+                    ?.message || "결제 승인에 실패했습니다."
+            );
+        }
+
+        const serverReceipt = confirmResponse.data.receipt || {};
+
+        const serverItems = Array.isArray(serverReceipt.items)
+            ? serverReceipt.items
+            : [];
+
+        const receipt = {
+            orderId: serverReceipt.orderId || realOrderId,
+            receiptNo: serverReceipt.receiptNo || "N/A",
+            waitingNo: serverReceipt.waitingNo || "N/A",
+            orderTime: serverReceipt.orderTime || new Date().toLocaleString(),
+
+            items: serverItems.length > 0
+                ? serverItems
+                : createFallbackItems(paymentData),
+
+            paymentMethod: serverReceipt.paymentMethod || paymentData.paymentMethod,
+
+            cardCompany: serverReceipt.cardCompany || "신용카드",
+
+            originalAmount: Number(
+                serverReceipt.originalAmount ?? paymentData.originalAmount ?? amount
+            ),
+
+            couponDiscount: Number(
+                serverReceipt.couponDiscount ?? paymentData.couponDiscount ?? 0
+            ),
+
+            pointUsed: Number(serverReceipt.pointUsed ?? paymentData.pointUsed ?? 0),
+
+            totalDiscount: Number(
+                serverReceipt.totalDiscount ?? paymentData.totalDiscount ?? 0
+            ),
+
+            finalAmount: Number(
+                serverReceipt.finalAmount ?? paymentData.finalAmount ?? amount
+            ),
+
+            pointEarned: Number(serverReceipt.pointEarned || 0),
+
+            /*
+     * 기존 OrderComplete.vue가 totalPrice를 사용해도
+     * 실제 결제 금액이 표시되도록 호환 필드를 유지한다.
+     */
+            totalPrice: Number(
+                serverReceipt.finalAmount ?? paymentData.finalAmount ?? amount
+            )
+        };
+
+        sessionStorage.setItem("receiptData", JSON.stringify(receipt));
+
+        sessionStorage.removeItem("paymentData");
+        sessionStorage.removeItem("orderData");
+        sessionStorage.removeItem("cartData");
+
+        router.replace({
+            name: "OrderComplete",
+            query: {
+                data: JSON.stringify(receipt)
+            }
+        });
+    };
+
+    const goHome = () => {
+        sessionStorage.removeItem("paymentData");
+        router.replace("/");
+    };
+
+    onMounted(async () => {
+        try {
+            await confirmPayment();
+        } catch (error) {
+            console.error("결제 승인 실패:", error);
+            isProcessing.value = false;
+
+            errorMessage.value = error.response
+                ?.data
+                    ?.message || error.message || "알 수 없는 오류가 발생했습니다.";
+        }
     });
-};
-
-onMounted(async () => {
-  try {
-      await confirmPayment();
-  } catch (error) {
-      console.error("결제 승인 실패 디버깅:", error);
-      isProcessing.value = false;
-      errorMessage.value = error.message || "알 수 없는 오류가 발생했습니다.";
-      
-      alert(`백엔드 연동 중 에러가 발생했습니다: ${errorMessage.value}`);
-      router.push('/');
-  }
-});
 </script>
 
-<style scoped>
-.loading-container { text-align: center; margin-top: 120px; font-family: sans-serif; }
-.spinner { border: 5px solid #f3f3f3; border-top: 5px solid #3182f6; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-.error-msg { color: #ff3333; margin-top: 10px; font-weight: bold; }
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+<style scoped="scoped">
+    .loading-container {
+        margin-top: 120px;
+        text-align: center;
+        font-family: sans-serif;
+    }
+
+    .spinner {
+        width: 50px;
+        height: 50px;
+        margin: 0 auto 20px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #3182f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    .error-container button {
+        padding: 11px 18px;
+        border: 0;
+        border-radius: 9px;
+        background: #ff1493;
+        color: #fff;
+        cursor: pointer;
+    }
+
+    .error-msg {
+        margin-top: 10px;
+        color: #ff3333;
+        font-weight: bold;
+    }
+
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+
+        to {
+            transform: rotate(360deg);
+        }
+    }
 </style>
