@@ -14,12 +14,14 @@
       <div class="info-container">
         <div class="detail-section">
           <div class="menu-list">
-            <div v-for="(item, index) in receipt.items" :key="index" class="row">
-              <span>{{ item.menuName }} × {{ item.quantity }} <br></span>
-              <span> {{ (item.price * item.quantity).toLocaleString() }}원</span>
+            <!-- 💡 렌더링 형식을 '이름 x 갯수 = 총가격'으로 변경 -->
+            <div v-for="(item, index) in receipt.items" :key="index" class="row" style="display: flex; justify-content: space-between;">
+              <span>{{ item.menuName }} x {{ item.quantity }}</span>
+              <span>{{ (item.price * item.quantity).toLocaleString() }}원</span>
             </div>
           </div>
         </div>
+        <!-- 이하 다른 정보들 유지 -->
         <div class="info-row">
           <span class="label">결제 수단</span>
           <span class="value">{{ receipt.paymentMethod }} ({{ receipt.cardCompany }})</span>
@@ -55,7 +57,7 @@ import { PrinterService } from '@/utils/printer';
 const router = useRouter();
 const route = useRoute();
 const receipt = ref(null);
-const countdown = ref(120); 
+const countdown = ref(60); 
 let timerId = null;
 
 onMounted(() => {

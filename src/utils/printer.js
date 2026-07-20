@@ -23,11 +23,13 @@ export const PrinterService = {
       receiptData.items.forEach(item => {
         const price = Number(item.price) || 0;
         const quantity = Number(item.quantity) || 0;
-        console.log(`${item.menuName || '이름 없음'} x ${quantity} : ${price.toLocaleString()}원`);
+        const itemTotal = price * quantity;
+
+        // 콘솔 출력
+        console.log(`${item.menuName} x ${quantity} = ${itemTotal.toLocaleString()}원`);
         
-        // 영수증 문자열 생성
-        const name = (item.menuName || '상품').padEnd(14, " ").substring(0, 14);
-        receiptContent += `${name} x${quantity}  ${price.toLocaleString()}원\n`;
+        // 영수증 텍스트 문자열 생성
+        receiptContent += `${item.menuName} x${quantity} = ${itemTotal.toLocaleString()}원\n`;
       });
     }
     
