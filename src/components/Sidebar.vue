@@ -1,4 +1,4 @@
-```vue
+`` `vue
 <template>
   <aside class="sidebar-container">
     <!-- 로고 -->
@@ -286,15 +286,23 @@
             </router-link>
 
             <router-link
-              to="/branch/orders-history"
-              class="menu-item"
-              active-class="active"
-            >
-              <span class="menu-icon">
-                🧾
-              </span>
+  to="/branch/orders-history"
+  class="menu-item"
+  active-class="active"
+>
+  <span class="menu-icon">
+    🧾
+  </span>
+
+  주문 취소 / 영수증
+</router-link>
 
               주문 취소 / 영수증
+            <router-link to="/kiosk-control" class="menu-item" active-class="active">
+              <span class="menu-icon">🖥️</span> 키오스크 활성화 (AS-001)
+            </router-link>
+            <router-link to="/orders-history" class="menu-item" active-class="active">
+              <span class="menu-icon">🧾</span> 주문 취소/영수증 (AS-003, 004)
             </router-link>
           </div>
         </div>
@@ -329,8 +337,10 @@
               <span class="menu-icon">
                 🍦
               </span>
-
+            </router-link>
               지점 재고 관리
+            <router-link to="/branch/inventory" class="menu-item" active-class="active">
+              <span class="menu-icon">🍦</span> 실시간 재고 관리 (AS-002)
             </router-link>
 
             <router-link
@@ -697,4 +707,4 @@ onMounted(() => {
   text-align: center;
 }
 </style>
-```
+` ``

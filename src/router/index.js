@@ -178,19 +178,18 @@ const routes = [
     },
   },
   {
-    path: "/order-request",
+    path: "/branch/order-request",
     name: "OrderRequest",
     component: OrderRequest,
     meta: {
       requiresAuth: true,
-      role: "BRANCH",
+      role: "HQ"||"BRANCH",
     },
   },
   {
-    path: "/inventory",
-    name: "BranchInventory",
-    component: () =>
-      import("../views/inventory/BranchInventoryView.vue"),
+    path: "/branch/inventory",
+    name: "Inventory",
+    component: Inventory,
     meta: {
       requiresAuth: true,
       role: "BRANCH",
@@ -240,10 +239,16 @@ const routes = [
   // 존재하지 않는 주소 처리
   // ==========================================
   {
-    path: "/:pathMatch(.*)*",
-    name: "NotFound",
-    redirect: "/",
-  },
+      path: "/:pathMatch(.*)*",
+      // 💡 화면이 완전히 깨지거나 멈추지 않도록 빈 컴포넌트 처리를 해줍니다.
+      component: { template: "<div></div>" }, 
+      
+      // 💡 이 주소에 진입하기 직전에 콘솔 로그를 트리거합니다.
+      beforeEnter: (to, from, next) => {
+        alert("존재하지 않는 주소입니다.");
+        next("");
+      },
+    },
 ];
 
 const router = createRouter({
@@ -313,7 +318,6 @@ router.beforeEach((to) => {
 
     return getDefaultRouteByRole(userRole);
   }
-
   return true;
 });
 

@@ -101,6 +101,7 @@ body,
 .main-container {
   width: 100%;
   min-height: 100vh;
+  height: 100vh; overflow-y: auto;
 }
 
 /* 사이드바가 있는 관리자 화면 */

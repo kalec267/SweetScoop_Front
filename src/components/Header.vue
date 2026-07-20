@@ -34,7 +34,7 @@
         </button>
 
         <!-- 드롭다운 리스트 박스 -->
-        <div v-if="isDropdownOpen" class="dropdown-menu">
+        <div v-if="isDropdownOpen" class="admin-dropdown-menu">
           <!-- 💡 권한에 따라 드롭다운 헤더 텍스트 분기 -->
           <div class="dropdown-header">
             {{ userRole === 'HQ' ? '본점 · 슈퍼관리자님' : '스윗스쿱 강남역점님' }}
@@ -51,7 +51,7 @@
           <!-- 💡 [분점 관리자 BRANCH 전용 바로가기 링크] -->
           <template v-else-if="userRole === 'BRANCH'">
             <router-link to="/branch/dashboard" class="dropdown-item" @click="isDropdownOpen = false">🏠 지점 홈</router-link>
-            <router-link to="/branch/inventory-status" class="dropdown-item" @click="isDropdownOpen = false">🍦 실시간 재고 관리</router-link>
+            <router-link to="/branch/inventory" class="dropdown-item" @click="isDropdownOpen = false">🍦 실시간 재고 관리</router-link>
             <router-link to="/branch/order-request" class="dropdown-item" @click="isDropdownOpen = false">📨 발주 신청</router-link>
           </template>
 
@@ -81,8 +81,10 @@ const isDropdownOpen = ref(false);
 const userRole = ref(''); // 👈 로컬스토리지에서 읽어올 권한 ('HQ' 또는 'BRANCH')
 
 const toggleDropdown = (event) => {
+  console.log("dropdown click");
   event.stopPropagation();
   isDropdownOpen.value = !isDropdownOpen.value;
+  console.log(isDropdownOpen.value);
   if (isDropdownOpen.value) {
     showNotificationBox.value = false;
   }
@@ -98,6 +100,7 @@ const toggleNotification = (event) => {
 };
 
 const closeAllPopups = () => {
+  console.log("closeAllPopups");
   isDropdownOpen.value = false;
   showNotificationBox.value = false;
 };
@@ -254,7 +257,7 @@ onUnmounted(() => {
   font-weight: 600;
   color: #334155;
 }
-.dropdown-menu {
+.admin-dropdown-menu {
   position: absolute;
   right: 0;
   top: 45px;

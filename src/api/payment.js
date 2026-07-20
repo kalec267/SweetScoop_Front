@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 백엔드 주소 설정 (포트 8888)
 const api = axios.create({
-  baseURL: 'http://localhost:8888/api',
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json'
   }

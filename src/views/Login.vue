@@ -1,4 +1,3 @@
-```vue:src/views/Login.vue
 <template>
   <div class="login-wrapper">
     <div class="login-card">
@@ -6,11 +5,31 @@
       <div class="login-header">
         <span class="logo-icecream">🍦</span>
         <h2>Sweet Scoop</h2>
-        <p class="subtitle">통합 관리 시스템 로그인</p>
+        <p class="subtitle">통합 관리 시스템</p>
       </div>
 
-      <!-- 로그인 폼 -->
-      <form @submit.prevent="handleLogin" class="login-form">
+      <!-- 상단 탭 (로그인 / 회원가입 전환) -->
+      <div class="mode-selector">
+        <button 
+          type="button" 
+          :class="{ active: currentMode === 'LOGIN' }" 
+          @click="currentMode = 'LOGIN'"
+        >
+          로그인
+        </button>
+        <button 
+          type="button" 
+          :class="{ active: currentMode === 'REGISTER' }" 
+          @click="currentMode = 'REGISTER'"
+        >
+          분점 등록 신청
+        </button>
+      </div>
+
+      <!-- ==========================================
+           [CASE 1] 로그인 폼 영역
+           ========================================== -->
+      <form v-if="currentMode === 'LOGIN'" @submit.prevent="handleLogin" class="auth-form">
         <!-- 역할 선택 탭 -->
         <div class="role-selector">
           <button 
@@ -51,7 +70,61 @@
           />
         </div>
 
-        <button type="submit" class="btn-login">로그인</button>
+        <button type="submit" class="btn-submit">로그인</button>
+      </form>
+
+      <!-- ==========================================
+           [CASE 2] 회원가입 폼 영역
+           ========================================== -->
+      <form v-else @submit.prevent="handleRegister" class="auth-form">
+        <!-- 1. 로그인 아이디 -->
+        <div class="form-group">
+          <label for="reg-login-id">아이디</label>
+          <input 
+            id="reg-login-id"
+            v-model="registerForm.loginId" 
+            type="text" 
+            placeholder="사용할 아이디 입력" 
+            required 
+          />
+        </div>
+
+        <!-- 2. 비밀번호 -->
+        <div class="form-group">
+          <label for="reg-password">비밀번호</label>
+          <input 
+            id="reg-password"
+            v-model="registerForm.password" 
+            type="password" 
+            placeholder="비밀번호 입력" 
+            required 
+          />
+        </div>
+
+        <!-- 3. 관리자 이름 -->
+        <div class="form-group">
+          <label for="reg-name">이름 (점주명)</label>
+          <input 
+            id="reg-name"
+            v-model="registerForm.name" 
+            type="text" 
+            placeholder="실명 입력" 
+            required 
+          />
+        </div>
+
+        <!-- 4. 소속 분점 ID -->
+        <div class="form-group">
+          <label for="reg-branch-id">소속 분점 번호 (숫자)</label>
+          <input 
+            id="reg-branch-id"
+            v-model="registerForm.branchId" 
+            type="number" 
+            placeholder="지점 코드 숫자 입력 (예: 1)" 
+          />
+        </div>
+
+        <button type="submit" class="btn-submit">가입 신청하기</button>
       </form>
     </div>
   </div>
@@ -60,9 +133,18 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from '../api/index.js'; // 👈 공통 커스텀 로깅 인터셉터가 장착된 Axios 인스턴스 맵핑
+import axios from '../api/index.js'; 
 
 const router = useRouter();
+
+const currentMode = ref('LOGIN');
+
+const registerForm = ref({
+  loginId: '',
+  password: '',
+  name: '',
+  branchId: null
+});
 
 const loginForm = ref({
   role: 'HQ', 
@@ -70,23 +152,55 @@ const loginForm = ref({
   password: ''
 });
 
+const errorMessage = ref('');
+
+const handleRegister = async () => {
+  try {
+    errorMessage.value = '';
+    
+    if (!registerForm.value.loginId || !registerForm.value.password || !registerForm.value.name) {
+      alert('모든 필수 항목을 입력해 주세요.');
+      return;
+    }
+
+    const response = await axios.post('/api/admin/auth/register', {
+      loginId: registerForm.value.loginId,
+      password: registerForm.value.password,
+      name: registerForm.value.name,
+      branchId: registerForm.value.branchId ? Number(registerForm.value.branchId) : null
+    });
+
+    if (response.status === 200) {
+      alert('회원가입이 성공적으로 완료되었습니다! 로그인해 주세요.');
+      registerForm.value = { loginId: '', password: '', name: '', branchId: null };
+      currentMode.value = 'LOGIN'; 
+    }
+  } catch (error) {
+    console.error('회원가입 에러:', error);
+    if (error.response && error.response.data) {
+      errorMessage.value = error.response.data.message || error.response.data;
+      alert(errorMessage.value);
+    } else {
+      alert('회원가입 중 오류가 발생했거나 이미 존재하는 아이디입니다.');
+    }
+  }
+};
+
 const handleLogin = async () => {
   try {
-    // 💡 상대 경로 대신 포트번호가 포함된 백엔드 "전체 주소"를 직접 작성합니다!
-    // 이렇게 하면 Axios 인스턴스의 baseURL에 영향을 받지 않고 정상적인 주소로 다이렉트 맵핑됩니다.
     const res = await axios.post('/api/admin/auth/login', loginForm.value);
     const { role, username, name, branchId } = res.data;
 
     alert(`${name}님, 로그인을 환영합니다!`);
     
-    // 로컬 스토리지에 세션 저장
+    localStorage.clear();
     localStorage.setItem('userRole', role);
     localStorage.setItem('username', username);
+    
     if (branchId) {
       localStorage.setItem('branchId', String(branchId));
     }
 
-    // 대시보드로 리다이렉트
     if (role === 'HQ') {
       router.push('/dashboard'); 
     } else if (role === 'BRANCH') {
@@ -110,8 +224,9 @@ const handleLogin = async () => {
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #fdf2f8 0%, #f1f5f9 100%);
-  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
 }
+
 .login-card {
   background: white;
   padding: 40px;
@@ -121,23 +236,60 @@ const handleLogin = async () => {
   max-width: 420px;
   box-sizing: border-box;
 }
+
 .login-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
-.logo-icecream {
-  font-size: 40px;
+
+.logo-icecream { 
+  font-size: 40px; 
 }
+
 .login-header h2 {
   font-size: 24px;
   font-weight: 800;
   color: #d13b7d; 
   margin: 10px 0 4px 0;
 }
-.subtitle {
-  font-size: 14px;
-  color: #64748b;
+
+.subtitle { 
+  font-size: 14px; 
+  color: #64748b; 
 }
+
+/* 상단 메인 변환 탭 */
+.mode-selector {
+  display: flex;
+  border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 24px;
+}
+
+.mode-selector button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-selector button.active {
+  color: #d13b7d;
+  border-bottom: 2px solid #d13b7d;
+  margin-bottom: -2px;
+}
+
+/* 세로 정렬 폼 바디 수립 */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
 .role-selector {
   display: flex;
   background: #f1f5f9;
@@ -145,6 +297,7 @@ const handleLogin = async () => {
   border-radius: 8px;
   margin-bottom: 24px;
 }
+
 .role-selector button {
   flex: 1;
   border: none;
@@ -157,46 +310,64 @@ const handleLogin = async () => {
   border-radius: 6px;
   transition: all 0.2s;
 }
+
 .role-selector button.active {
   background: white;
   color: #d13b7d;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
+
+/* 폼 그룹 및 인풋창 너비 최적화 */
 .form-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin-bottom: 18px;
+  width: 100%;
+  box-sizing: border-box;
 }
+
 .form-group label {
   font-size: 13px;
   font-weight: 600;
   color: #475569;
+  text-align: left;
 }
+
 .form-group input {
-  padding: 10px 14px;
+  width: 100%;
+  padding: 12px 14px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-size: 14px;
   outline: none;
+  background-color: #ffffff; /* 💡 시인성 확보를 위해 밝은 배경으로 리셋 */
+  color: #1e293b;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
 }
-.form-group input:focus {
-  border-color: #d13b7d;
+
+.form-group input:focus { 
+  border-color: #d13b7d; 
 }
-.btn-login {
+
+/* 가입신청/로그인 통합 버튼 스타일 */
+.btn-submit {
   width: 100%;
   background: #d13b7d;
   color: white;
   border: none;
-  padding: 12px;
+  padding: 13px;
   border-radius: 8px;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   margin-top: 10px;
+  box-sizing: border-box;
   transition: background 0.2s;
 }
-.btn-login:hover {
-  background: #b52a65;
+
+.btn-submit:hover { 
+  background: #b52a65; 
 }
 </style>
