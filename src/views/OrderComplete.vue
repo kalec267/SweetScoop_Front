@@ -28,29 +28,24 @@
       <div class="info-container">
         <!-- 주문 상품 -->
         <div class="detail-section">
-          <h2 class="section-title">
-            주문 상품
-          </h2>
-
+          <!-- src/views/OrderComplete.vue 의 menu-list 내부 수정 -->
           <div class="menu-list">
-            <div
-              v-for="(item, index) in receiptItems"
-              :key="createItemKey(item, index)"
-              class="menu-row"
-            >
-              <div class="menu-info">
-                <span class="menu-name">
-                  {{ item.menuName || "상품" }}
-                </span>
-
-                <span class="menu-quantity">
-                  × {{ Number(item.quantity || 1) }}
-                </span>
+            <div v-for="(item, index) in receipt.items" :key="index" class="menu-item-row">
+              <!-- 💡 메뉴명/수량과 가격이 한 줄로 나란히 출력되도록 배치 -->
+              <div class="menu-item-header">
+                <span class="item-main-name">{{ item.menuName }} x {{ item.quantity }}</span>
+                <span class="item-price">{{ (item.price * item.quantity).toLocaleString() }}원</span>
+              </div>
+              
+              <!-- 맛 선택 정보 (아이스크림류 등 flavors가 존재하는 경우만 출력) -->
+              <div v-if="item.flavors" class="item-options-text">
+                - 맛: {{ item.flavors }}
               </div>
 
-              <span class="menu-price">
-                {{ getItemTotalPrice(item).toLocaleString() }}원
-              </span>
+              <!-- 옵션 정보 (옵션이 존재하는 경우만 출력) -->
+              <div v-if="item.options" class="item-options-text">
+                - 옵션: {{ item.options }}
+              </div>
             </div>
 
             <p
@@ -61,8 +56,8 @@
             </p>
           </div>
         </div>
-
-        <!-- 결제 정보 -->
+        
+        <!-- 이하 기존 결제 정보들 유지 -->
         <div class="info-row">
           <span class="label">
             결제 수단
@@ -212,8 +207,7 @@ const router = useRouter();
 const route = useRoute();
 
 const receipt = ref(null);
-const countdown = ref(120);
-
+const countdown = ref(60); 
 let timerId = null;
 
 /**
@@ -498,215 +492,32 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-:global(body) {
-  margin: 0;
-  background: #f7f8fa;
+.complete-container { max-width: 450px; margin: 50px auto; padding: 20px; text-align: center; font-family: 'Pretendard', sans-serif; }
+.receipt-card { background: white; padding: 40px 30px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-bottom: 20px; }
+.success-icon { font-size: 60px; margin-bottom: 10px; }
+h1 { font-size: 24px; margin-bottom: 10px; color: #1a1a1a; }
+.guide-text { color: #666; font-size: 14px; margin-bottom: 30px; }
+.waiting-box { background: #f0f7ff; color: #3182f6; padding: 20px; border-radius: 20px; margin-bottom: 30px; }
+.waiting-box p { font-size: 14px; margin: 0; font-weight: 600; }
+.waiting-box .number { font-size: 64px; font-weight: 800; margin-top: 5px; line-height: 1; }
+.info-container { border-top: 1px dashed #e2e8f0; padding-top: 20px; }
+.info-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; }
+.label { color: #718096; }
+.value { color: #2d3748; font-weight: 600; }
+.amount { color: #3182f6; font-size: 16px; }
+.timer { color: #a0aec0; font-size: 14px; font-weight: bold; }
+/* 스타일 추가 또는 수정 */
+.menu-list { margin: 15px 0; border-bottom: 1px dashed #e5e7eb; padding-bottom: 10px; text-align: left; }
+.menu-item-row { margin-bottom: 12px; }
+
+/* 💡 메뉴 헤더 한 줄 정렬 스타일 */
+.menu-item-header { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
 }
 
-* {
-  box-sizing: border-box;
-}
-
-.complete-container {
-  width: 100%;
-  max-width: 500px;
-  margin: 50px auto;
-  padding: 20px;
-
-  text-align: center;
-  font-family:
-    "Pretendard",
-    "Malgun Gothic",
-    sans-serif;
-}
-
-.receipt-card {
-  margin-bottom: 20px;
-  padding: 40px 30px;
-
-  border-radius: 24px;
-  background: #ffffff;
-
-  box-shadow:
-    0 10px 30px
-    rgba(0, 0, 0, 0.08);
-}
-
-.success-icon {
-  margin-bottom: 10px;
-
-  font-size: 60px;
-}
-
-h1 {
-  margin: 0 0 10px;
-
-  color: #1a1a1a;
-  font-size: 24px;
-}
-
-.guide-text {
-  margin-bottom: 30px;
-
-  color: #666666;
-  font-size: 14px;
-}
-
-.waiting-box {
-  margin-bottom: 30px;
-  padding: 20px;
-
-  border-radius: 20px;
-  background: #f0f7ff;
-
-  color: #3182f6;
-}
-
-.waiting-box p {
-  margin: 0;
-
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.waiting-box .number {
-  margin-top: 5px;
-
-  font-size: 64px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.info-container {
-  padding-top: 20px;
-
-  border-top: 1px dashed #e2e8f0;
-}
-
-.section-title {
-  margin: 0 0 12px;
-
-  color: #2d3748;
-  font-size: 16px;
-  text-align: left;
-}
-
-.menu-list {
-  margin: 0 0 18px;
-  padding-bottom: 12px;
-
-  border-bottom: 1px dashed #e5e7eb;
-}
-
-.menu-row {
-  margin-bottom: 10px;
-
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-
-  color: #555555;
-  font-size: 14px;
-}
-
-.menu-info {
-  min-width: 0;
-
-  display: flex;
-  gap: 5px;
-
-  text-align: left;
-}
-
-.menu-name {
-  word-break: keep-all;
-}
-
-.menu-quantity {
-  color: #718096;
-  white-space: nowrap;
-}
-
-.menu-price {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.empty-items {
-  color: #a0aec0;
-  font-size: 13px;
-}
-
-.info-row {
-  margin-bottom: 12px;
-
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 15px;
-
-  font-size: 14px;
-}
-
-.label {
-  color: #718096;
-  text-align: left;
-}
-
-.value {
-  color: #2d3748;
-  font-weight: 600;
-  text-align: right;
-}
-
-.discount {
-  color: #e53e76;
-}
-
-.final-payment-row {
-  margin-top: 15px;
-  padding-top: 15px;
-
-  border-top: 1px solid #edf2f7;
-}
-
-.amount {
-  color: #3182f6;
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.point-earned-row {
-  padding: 10px 12px;
-
-  border-radius: 10px;
-  background: #f0fff4;
-}
-
-.point-earned {
-  color: #239653;
-}
-
-.timer {
-  color: #a0aec0;
-  font-size: 14px;
-  font-weight: bold;
-}
-
-.home-button {
-  width: 100%;
-  padding: 15px;
-
-  border: 0;
-  border-radius: 13px;
-  background: #3182f6;
-
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 700;
-
-  cursor: pointer;
-}
+.item-main-name { font-weight: 600; color: #2d3748; font-size: 14px; }
+.item-price { font-weight: 600; color: #2d3748; font-size: 14px; }
+.item-options-text { font-size: 12px; color: #718096; margin-top: 3px; padding-left: 4px; }
 </style>
-```
