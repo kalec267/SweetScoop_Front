@@ -281,17 +281,16 @@
     </section>
 
     <Transition name="detail-slide">
-      <section
-        v-if="selectedBranchId !== null"
-        class="detail-section"
-      >
+      <section v-if="selectedBranchId !== null" class="detail-section">
+        <!-- 💡 지점 상세 + 점주 정보 수정을 BranchDetail 내부에서 통합 처리합니다. -->
         <BranchDetail
           ref="detailComponentRef"
           :branch-id="selectedBranchId"
           @close="selectedBranchId = null"
+          @updated="fetchBranches"
         />
       </section>
-    </Transition>
+  </Transition>
   </div>
 </template>
 
@@ -312,7 +311,10 @@ const editingId = ref(null);
 
 const editForm = ref({
   branchName: "",
-  location: ""
+  location: "",
+  loginId: "",
+  name: "",
+  password: ""
 });
 
 const selectedBranchId = ref(null);
@@ -418,7 +420,10 @@ const startEdit = (branch) => {
 
   editForm.value = {
     branchName: branch.branchName,
-    location: branch.location
+    location: branch.location,
+    loginId: branch.loginId || "",
+    password: "",
+    name: branch.name || ""
   };
 };
 
@@ -427,7 +432,10 @@ const cancelEdit = () => {
 
   editForm.value = {
     branchName: "",
-    location: ""
+    location: "",
+    loginId: "",
+    password: "",
+    name: ""
   };
 };
 

@@ -1,25 +1,18 @@
 <template>
-  <!-- v-if 조건부 렌더링 및 제공해주신 .detail-section 클래스 적용 -->
+  <!-- v-if 조건부 렌더링 및 .detail-section 클래스 적용 -->
   <div v-if="branchId" class="detail-section content-card">
-    
-    <!-- 카드 헤더 영역 -->
+    <!-- 카드 헤더 -->
     <div class="card-heading" style="border-bottom: 1px solid rgba(219, 226, 234, 0.5); align-items: center;">
       <div>
         <h2>🎯 {{ branchData?.branchName || '로딩 중...' }} 상세 정보</h2>
-        <p>분점의 상세 위치와 개별 키오스크 기기들의 실시간 가동 현황을 확인합니다.</p>
+        <p>분점의 상세 위치, 등록된 점주 계정 목록 및 개별 키오스크 가동 현황을 관리합니다.</p>
       </div>
-      <!-- CSS의 action-button cancel 스타일을 활용한 닫기 버튼 -->
-      <button @click="closeModal" class="action-button cancel" title="닫기" style="height: 38px; min-width: 65px;">
-        닫기
-      </button>
+      <button @click="closeModal" class="action-button cancel" style="height: 38px; min-width: 65px;">닫기</button>
     </div>
-    
-    <!-- 데이터 로드 완료 시 표출 영역 -->
+
     <div style="padding: 26px;" v-if="branchData">
-      
-      <!-- 상단 요약 그리드 (3칸 배치 고정) -->
+      <!-- 요약 그리드 (위치 / 대수 / 상태) -->
       <div class="summary-grid" :style="{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }">
-        <!-- 1. 위치 정보 -->
         <div class="summary-card">
           <div class="summary-icon blue">📍</div>
           <div>
@@ -27,8 +20,6 @@
             <strong>{{ branchData.location || '-' }}</strong>
           </div>
         </div>
-        
-        <!-- 2. 키오스크 대수 -->
         <div class="summary-card">
           <div class="summary-icon orange">🖥️</div>
           <div>
@@ -36,8 +27,6 @@
             <strong>{{ branchData.kiosks?.length || 0 }}대</strong>
           </div>
         </div>
-        
-        <!-- 3. 통합 운영 상태 -->
         <div class="summary-card">
           <div class="summary-icon green">📊</div>
           <div>
@@ -52,7 +41,123 @@
         </div>
       </div>
 
-      <!-- 🌟 키오스크 등록 영역 추가 -->
+      <!-- 👥 분점 점주 계정 목록 & 선택 수정/삭제 영역 -->
+      <div class="manager-section" style="margin-top: 28px; padding: 22px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <h3 style="font-size: 17px; font-weight: 800; color: #1e293b; margin: 0 0 14px 0; display: flex; align-items: center; gap: 8px;">
+          👥 등록된 점주 계정 목록
+        </h3>
+
+        <!-- 점주 목록 테이블 -->
+        <div class="table-container" style="border: 1px solid #edf1f5; border-radius: 8px; overflow: hidden; margin-bottom: 20px;">
+          <table class="branch-table" style="width: 100%; table-layout: fixed;">
+            <thead>
+              <tr>
+                <th style="width: 15%;">계정 고유ID</th>
+                <th style="width: 25%;">로그인 아이디</th>
+                <th style="width: 25%;">점주 성명</th>
+                <th class="center" style="width: 35%;">계정 관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="!branchData.managers || branchData.managers.length === 0">
+                <td colspan="4" class="empty-td" style="text-align: center; padding: 20px; color: #94a3b8;">
+                  등록된 점주 계정이 없습니다. 아래에서 새로 등록하세요.
+                </td>
+              </tr>
+              <tr 
+                v-for="mgr in branchData.managers" 
+                :key="mgr.id"
+                :style="{ background: selectedManagerId === mgr.id ? '#f0f9ff' : 'transparent' }"
+              >
+                <td><strong style="font-family: Consolas, monospace; color: #4f46e5;">{{ mgr.id }}</strong></td>
+                <td>{{ mgr.loginId || '(아이디 없음)' }}</td>
+                <td><strong>{{ mgr.name || '(이름 없음)' }}</strong></td>
+                <td class="center">
+                  <div class="action-group" style="justify-content: center; gap: 8px;">
+                    <button 
+                      type="button" 
+                      class="action-button edit" 
+                      style="padding: 4px 12px; font-size: 12px; height: 32px;"
+                      @click="selectManagerForEdit(mgr)"
+                    >
+                      선택 수정
+                    </button>
+                    <button 
+                      type="button" 
+                      class="action-button delete" 
+                      style="padding: 4px 12px; font-size: 12px; height: 32px;"
+                      @click="deleteManagerAccount(mgr.id, mgr.name)"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 선택된 점주 정보 수정 / 신규 등록 폼 -->
+        <form @submit.prevent="saveManagerInfo" style="background: #f8fafc; padding: 18px; border-radius: 10px; border: 1px solid #f1f5f9;">
+          <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <strong style="font-size: 14px; color: #334155;">
+              {{ selectedManagerId ? `✏️ [${selectedManagerId}] 계정 정보 수정` : '➕ 신규 점주 계정 추가' }}
+            </strong>
+            <button 
+              v-if="selectedManagerId" 
+              type="button" 
+              @click="resetManagerForm"
+              style="background: none; border: none; color: #64748b; font-size: 12px; cursor: pointer; text-decoration: underline;"
+            >
+              초기화 (신규 추가 모드로 전환)
+            </button>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-size: 12px; font-weight: 600; color: #475569;">점주 성명</label>
+              <input 
+                v-model.trim="managerForm.name" 
+                type="text" 
+                placeholder="점주 이름 입력" 
+                style="padding: 8px 12px; height: 36px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;"
+                required 
+              />
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-size: 12px; font-weight: 600; color: #475569;">로그인 아이디</label>
+              <input 
+                v-model.trim="managerForm.loginId" 
+                type="text" 
+                placeholder="아이디 입력" 
+                style="padding: 8px 12px; height: 36px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;"
+                required 
+              />
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 10px;">
+            <label style="font-size: 12px; font-weight: 600; color: #475569;">
+              비밀번호 {{ selectedManagerId ? '변경 (미입력 시 기존 유비)' : '설정' }}
+            </label>
+            <input 
+              v-model="managerForm.password" 
+              type="password" 
+              placeholder="비밀번호 입력" 
+              style="padding: 8px 12px; height: 36px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px;"
+              :required="!selectedManagerId"
+            />
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+            <button type="submit" class="primary-button" style="height: 36px; padding: 0 18px; font-size: 13px;">
+              {{ selectedManagerId ? '점주 정보 수정 저장' : '새 점주 계정 등록' }}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ➕ 신규 키오스크 기기 추가 영역 -->
       <div class="kiosk-register-box" style="margin-top: 24px; padding: 18px 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
         <div>
           <strong style="font-size: 15px; color: #1e293b; display: block; margin-bottom: 2px;">➕ 신규 키오스크 기기 추가</strong>
@@ -82,12 +187,11 @@
         </form>
       </div>
 
-      <!-- 하단 키오스크 리스트 섹션 -->
+      <!-- 개별 키오스크 기기 가동 현황 테이블 -->
       <h2 style="font-size: 18px; font-weight: 800; margin: 28px 0 16px; color: #253047;">
         🖥️ 개별 키오스크 기기 가동 현황
       </h2>
       
-      <!-- 키오스크가 없을 때 -->
       <div v-if="!branchData.kiosks || branchData.kiosks.length === 0" class="table-state empty-state">
         <span>📭</span>
         <strong>등록된 기기 없음</strong>
@@ -123,7 +227,6 @@
                   {{ kiosk.status || '알 수 없음' }}
                 </span>
               </td>
-              <!-- 🌟 변경된 부분: 드롭다운으로 원하는 상태 바로 선택 후 변경 -->
               <td class="center">
                 <div class="action-group" style="justify-content: center; gap: 8px;">
                   <select 
@@ -151,7 +254,6 @@
           </tbody>
         </table>
       </div>
-
     </div>
     
     <!-- 로딩 중일 때 -->
@@ -166,41 +268,89 @@
 import { ref, watch } from 'vue'
 import axios from 'axios'
 
-// 1. Props 및 Emits 선언
 const props = defineProps({
-  branchId: {
-    type: [Number, String],
-    default: null
-  }
+  branchId: { type: [Number, String], default: null }
 })
-
 const emit = defineEmits(['close', 'refresh-list'])
 
-// 2. 상태(State) 선언
 const branchData = ref(null)
+const selectedManagerId = ref(null)
+
+// 키오스크 관련 상태
 const newKioskStatus = ref('정상')
 const isSubmitting = ref(false)
+
+// 점주 계정 폼
+const managerForm = ref({
+  loginId: '',
+  name: '',
+  password: ''
+})
 
 const API_BRANCH_URL = '/api/admin/branches'
 const API_KIOSK_URL = '/api/admin/kiosks'
 
-// 3. API 통신 함수 (상세 정보 조회)
+// 상세 정보 조회
 const fetchBranchDetail = async (id) => {
   try {
-    const cleanId = String(id).trim()
-    console.log(`[BranchDetail] 백엔드 API 요청 시작 -> 주소: ${API_BRANCH_URL}/${cleanId}`)
-    
-    const response = await axios.get(`${API_BRANCH_URL}/${cleanId}`)
-    branchData.value = response.data
-    
-    console.log('[BranchDetail] 백엔드 데이터 로드 성공:', response.data)
-  } catch (error) {
-    console.error('❌ [BranchDetail] 상세 정보 로드 실패!', error)
-    alert('상세 정보를 불러올 수 없습니다. 개발자 도구(F12) 콘솔 창을 확인해 주세요.')
+    const res = await axios.get(`${API_BRANCH_URL}/${id}`)
+    branchData.value = res.data
+  } catch (err) {
+    console.error('상세 정보 불러오기 실패:', err)
   }
 }
 
-// 4. 키오스크 등록 기능
+// 점주 선택 수정
+const selectManagerForEdit = (mgr) => {
+  selectedManagerId.value = mgr.id
+  managerForm.value = {
+    loginId: mgr.loginId || '',
+    name: mgr.name || '',
+    password: ''
+  }
+}
+
+// 폼 초기화
+const resetManagerForm = () => {
+  selectedManagerId.value = null
+  managerForm.value = { loginId: '', name: '', password: '' }
+}
+
+// 점주 저장 (수정 또는 등록)
+const saveManagerInfo = async () => {
+  try {
+    await axios.put(`${API_BRANCH_URL}/${props.branchId}/manager`, {
+      managerId: selectedManagerId.value,
+      loginId: managerForm.value.loginId,
+      name: managerForm.value.name,
+      password: managerForm.value.password
+    })
+
+    alert(selectedManagerId.value ? '점주 정보가 수정되었습니다.' : '새 점주 계정이 등록되었습니다.')
+    resetManagerForm()
+    await fetchBranchDetail(props.branchId)
+    emit('refresh-list')
+  } catch (err) {
+    alert('점주 정보 저장에 실패했습니다.')
+  }
+}
+
+// 점주 개별 삭제
+const deleteManagerAccount = async (managerId, name) => {
+  if (!confirm(`점주 계정 [${name || managerId}]을 삭제하시겠습니까?`)) return
+
+  try {
+    await axios.delete(`/api/admin/branches/managers/${managerId}`)
+    alert('점주 계정이 삭제되었습니다.')
+    if (selectedManagerId.value === managerId) resetManagerForm()
+    await fetchBranchDetail(props.branchId)
+    emit('refresh-list')
+  } catch (err) {
+    alert('점주 계정 삭제 중 오류가 발생했습니다.')
+  }
+}
+
+// 키오스크 신규 등록
 const registerKiosk = async () => {
   if (!props.branchId) return
 
@@ -212,8 +362,6 @@ const registerKiosk = async () => {
 
     alert('신규 키오스크가 성공적으로 등록되었습니다.')
     newKioskStatus.value = '정상'
-    
-    // 상세 정보 및 메인 목록 동시 갱신
     await fetchBranchDetail(props.branchId)
     emit('refresh-list')
   } catch (error) {
@@ -224,14 +372,12 @@ const registerKiosk = async () => {
   }
 }
 
-// 5. 🌟 지정된 상태로 변경 기능 (드롭다운 선택 시 실행)
+// 키오스크 상태 변경
 const onStatusChange = async (kiosk, newStatus) => {
-  // 동일한 상태로 재선택된 경우 API 요청 취소
   if (kiosk.status === newStatus) return
 
   const confirmed = confirm(`키오스크 #${kiosk.id}의 상태를 [${newStatus}](으)로 변경하시겠습니까?`)
   if (!confirmed) {
-    // 취소 시 화면을 기존 데이터로 원복하기 위해 재조회
     await fetchBranchDetail(props.branchId)
     return
   }
@@ -251,7 +397,7 @@ const onStatusChange = async (kiosk, newStatus) => {
   }
 }
 
-// 6. 키오스크 삭제 기능
+// 키오스크 삭제
 const deleteKiosk = async (kioskId) => {
   const confirmed = confirm(`키오스크 #${kioskId}를 삭제하시겠습니까?`)
   if (!confirmed) return
@@ -268,22 +414,7 @@ const deleteKiosk = async (kioskId) => {
   }
 }
 
-// 7. 관찰자(Watch) 설정
-watch(() => props.branchId, (newId) => {
-  if (newId) {
-    console.log(`[BranchDetail] branchId 변경 감지 -> 새로운 ID: ${newId}`)
-    fetchBranchDetail(newId)
-  } else {
-    branchData.value = null
-  }
-}, { immediate: true })
-
-// 8. 컴포넌트 폐쇄 기능
-const closeModal = () => {
-  emit('close')
-}
-
-// 9. 통합 상태 클래스 매칭 기능
+// 뱃지 상태 매칭 함수
 const getStatusBadgeClass = (status) => {
   if (!status) return 'empty'
   if (status === '정상') return 'normal'
@@ -301,7 +432,12 @@ const getKioskBadgeClass = (status) => {
   return 'waiting'
 }
 
-// 부모 컴포넌트 제어용 노출
+watch(() => props.branchId, (newId) => {
+  if (newId) fetchBranchDetail(newId)
+}, { immediate: true })
+
+const closeModal = () => emit('close')
+
 defineExpose({
   refresh: () => {
     if (props.branchId) fetchBranchDetail(props.branchId)

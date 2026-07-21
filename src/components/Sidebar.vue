@@ -149,6 +149,15 @@
             </router-link>
 
             <router-link
+              to="/inventory/branch-inventory"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">🏪</span>
+              지점 재고 관리
+            </router-link>
+
+            <router-link
               to="/event-management"
               class="menu-item"
               active-class="active"
