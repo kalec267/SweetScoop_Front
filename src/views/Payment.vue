@@ -273,12 +273,31 @@
             const quantity = Number(item.quantity) || 1;
             const unitPrice = Number(item.unitPrice ?? item.totalPrice) || 0;
 
+            // 💡 1. 사이즈 이름과 맛(menus) 정보를 조합하여 통일된 이름 형식 생성
+            const sizeName = item.sizeName || '';
+            let flavorNames = [];
+            if (Array.isArray(item.menus) && item.menus.length > 0) {
+                // menus가 객체 배열인 경우와 숫자(ID)인 경우를 모두 안전하게 처리
+                flavorNames = item.menus.map(m => m.name || m).filter(x => typeof x === 'string');
+            }
+
+            let displayName = item.name || '상품';
+            if (sizeName) {
+                displayName = sizeName;
+            }
+            if (flavorNames.length > 0) {
+                displayName += ` (${flavorNames.join(', ')})`;
+            }
+
             return {
                 /* 모찌/커피는 컵 또는 아이스크림 사이즈가 없을 수 있으므로 null 허용 */
                 cupId: item.cupId != null ? Number(item.cupId) : null,
                 sizeId: item.sizeId != null ? Number(item.sizeId) : null,
                 quantity,
                 totalPrice: unitPrice * quantity,
+                // 💡 백엔드 전송용 name 또는 itemName 필드가 있다면 displayName 함께 전달
+                name: displayName,
+                itemName: displayName,
                 menus: (item.menus || [])
                     .map(menu => Number(menu.menuId ?? menu.id))
                     .filter(Number.isFinite)
@@ -289,7 +308,7 @@
                     .map(menuOptionId => ({ menuOptionId }))
             };
         });
-
+        
         if (!usingCart.value && orderData.value.iceCream) {
             items.push({
                 cupId: Number(orderData.value.iceCream.cupId),

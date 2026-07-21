@@ -1,12 +1,22 @@
+// src/utils/printer.js
 export const PrinterService = {
-  // 💡 비동기 처리를 위해 async 추가
+  formatOptions(options) {
+    if (!options) return '';
+    if (Array.isArray(options)) {
+      return options.map(opt => (typeof opt === 'object' && opt !== null ? (opt.name || opt.label || '') : opt)).join(', ');
+    }
+    if (typeof options === 'object') {
+      return options.name || options.label || JSON.stringify(options);
+    }
+    return String(options);
+  },
+
   async printReceipt(receiptData) {
     if (!receiptData) {
       console.warn('====== [HARDWARE DRIVER] 영수증 데이터가 유효하지 않습니다. ======');
       return;
     }
 
-    // 1. 기존 로그 출력 로직 유지
     console.log('====== [HARDWARE DRIVER] 영수증 출력 가동 ======');
     console.log(`내부 매핑 주문ID : ${receiptData.orderId || 'N/A'}`);
     console.log(`통합 영수증 번호 : ${receiptData.receiptNo || 'N/A'}`);
@@ -19,17 +29,36 @@ export const PrinterService = {
     receiptContent += `영수증번호 : ${receiptData.receiptNo || 'N/A'}\n`;
     receiptContent += `주문시각 : ${receiptData.orderTime || 'N/A'}\n--------------------------------\n`;
 
+    let fullItemsDescription = [];
+
     if (receiptData.items && Array.isArray(receiptData.items)) {
       receiptData.items.forEach(item => {
         const price = Number(item.price) || 0;
         const quantity = Number(item.quantity) || 0;
         const itemTotal = price * quantity;
+        
+        const flavorsStr = item.flavors || '';
+        const optionsStr = item.options || '';
 
         // 콘솔 출력
         console.log(`${item.menuName} x ${quantity} = ${itemTotal.toLocaleString()}원`);
+        if (flavorsStr) console.log(`  └ 맛: ${flavorsStr}`);
+        if (optionsStr) console.log(`  └ 옵션: ${optionsStr}`);
         
         // 영수증 텍스트 문자열 생성
         receiptContent += `${item.menuName} x${quantity} = ${itemTotal.toLocaleString()}원\n`;
+        if (flavorsStr) receiptContent += `  - 맛: ${flavorsStr}\n`;
+        if (optionsStr) receiptContent += `  - 옵션: ${optionsStr}\n`;
+
+        // 서버 전송용 요약 데이터 생성
+        let itemDesc = `${item.menuName} x${quantity}`;
+        let details = [];
+        if (flavorsStr) details.push(`맛: ${flavorsStr}`);
+        if (optionsStr) details.push(`옵션: ${optionsStr}`);
+        if (details.length > 0) {
+          itemDesc += ` (${details.join(' / ')})`;
+        }
+        fullItemsDescription.push(itemDesc);
       });
     }
     
@@ -43,23 +72,21 @@ export const PrinterService = {
     receiptContent += "================================\n";
     receiptContent += `고객 호출 번호 : ${receiptData.waitingNo || 'N/A'}번\n\n\n`;
 
-    // 2. 물리 프린터 SDK 연동 (기존 코드)
     if (window.KioskPrinterSDK) {
       window.KioskPrinterSDK.printText(`호출대기번호: ${receiptData.waitingNo || 'N/A'}\n`);
       window.KioskPrinterSDK.cutPaper();
     }
 
-    // 3. 서버 전송 로직 추가 (172.16.15.97:77777/receipt)
     try {
       const response = await fetch('http://localhost:8888/api/printer/print', {  
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderNo: receiptData.orderId,
-          orderItem: receiptData.items[0]?.menuName || '상품명',
+          orderItem: fullItemsDescription.join(', ') || '상품명',
           price: receiptData.totalPrice.toLocaleString() + "원",
           orderDate: receiptData.orderTime
-          }) // 서버가 'content' 키를 받는다고 가정
+        })
       });
       
       if (response.ok) {

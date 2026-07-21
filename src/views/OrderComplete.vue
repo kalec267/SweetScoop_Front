@@ -13,15 +13,29 @@
 
       <div class="info-container">
         <div class="detail-section">
+          <!-- src/views/OrderComplete.vue 의 menu-list 내부 수정 -->
           <div class="menu-list">
-            <!-- 💡 렌더링 형식을 '이름 x 갯수 = 총가격'으로 변경 -->
-            <div v-for="(item, index) in receipt.items" :key="index" class="row" style="display: flex; justify-content: space-between;">
-              <span>{{ item.menuName }} x {{ item.quantity }}</span>
-              <span>{{ (item.price * item.quantity).toLocaleString() }}원</span>
+            <div v-for="(item, index) in receipt.items" :key="index" class="menu-item-row">
+              <!-- 💡 메뉴명/수량과 가격이 한 줄로 나란히 출력되도록 배치 -->
+              <div class="menu-item-header">
+                <span class="item-main-name">{{ item.menuName }} x {{ item.quantity }}</span>
+                <span class="item-price">{{ (item.price * item.quantity).toLocaleString() }}원</span>
+              </div>
+              
+              <!-- 맛 선택 정보 (아이스크림류 등 flavors가 존재하는 경우만 출력) -->
+              <div v-if="item.flavors" class="item-options-text">
+                - 맛: {{ item.flavors }}
+              </div>
+
+              <!-- 옵션 정보 (옵션이 존재하는 경우만 출력) -->
+              <div v-if="item.options" class="item-options-text">
+                - 옵션: {{ item.options }}
+              </div>
             </div>
           </div>
         </div>
-        <!-- 이하 다른 정보들 유지 -->
+        
+        <!-- 이하 기존 결제 정보들 유지 -->
         <div class="info-row">
           <span class="label">결제 수단</span>
           <span class="value">{{ receipt.paymentMethod }} ({{ receipt.cardCompany }})</span>
@@ -94,7 +108,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* 기존 스타일 그대로 유지 */
 .complete-container { max-width: 450px; margin: 50px auto; padding: 20px; text-align: center; font-family: 'Pretendard', sans-serif; }
 .receipt-card { background: white; padding: 40px 30px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-bottom: 20px; }
 .success-icon { font-size: 60px; margin-bottom: 10px; }
@@ -109,6 +122,18 @@ h1 { font-size: 24px; margin-bottom: 10px; color: #1a1a1a; }
 .value { color: #2d3748; font-weight: 600; }
 .amount { color: #3182f6; font-size: 16px; }
 .timer { color: #a0aec0; font-size: 14px; font-weight: bold; }
-.menu-list { margin: 15px 0; border-bottom: 1px dashed #e5e7eb; padding-bottom: 10px; }
-.menu-list .row { margin-bottom: 8px; font-size: 14px; color: #555; }
+/* 스타일 추가 또는 수정 */
+.menu-list { margin: 15px 0; border-bottom: 1px dashed #e5e7eb; padding-bottom: 10px; text-align: left; }
+.menu-item-row { margin-bottom: 12px; }
+
+/* 💡 메뉴 헤더 한 줄 정렬 스타일 */
+.menu-item-header { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+}
+
+.item-main-name { font-weight: 600; color: #2d3748; font-size: 14px; }
+.item-price { font-weight: 600; color: #2d3748; font-size: 14px; }
+.item-options-text { font-size: 12px; color: #718096; margin-top: 3px; padding-left: 4px; }
 </style>

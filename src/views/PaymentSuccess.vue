@@ -57,59 +57,51 @@
           });
       }
   
-      // 4. receipt 객체 생성 (맛/옵션 데이터 디버깅 및 통합 매핑)
-    const receipt = {
+      const receipt = {
         orderId: confirmResponse.data.receipt?.orderId || realOrderId,
         receiptNo: confirmResponse.data.receipt?.receiptNo || "N/A",
         waitingNo: confirmResponse.data.receipt?.waitingNo || "N/A",
         orderTime: confirmResponse.data.receipt?.orderTime || new Date().toLocaleString(),
         
         items: (paymentData.orderData.items || []).map(item => {
-            // 💡 F12 개발자 도구 콘솔에서 각 상품의 키 구조를 눈으로 확인할 수 있습니다.
-            console.log("🔍 [디버깅] 현재 아이템 전체 구조:", item);
+            let displayName = '';
+            let flavorText = '';
+            let optionsText = '';
 
-            const baseName = item.menuName || item.name || '상품';
-            
-            // 사이즈 정제
-            let rawSize = item.sizeName || item.size || '';
-            const size = rawSize.toString().replace(/[()]/g, '').trim();
-
-            // 맛/옵션 데이터가 존재할 수 있는 모든 키 이름 확장 탐색
-            const options = item.flavors || 
-                            item.flavorList || 
-                            item.selectedFlavors || 
-                            item.options || 
-                            item.flavor || 
-                            item.tastes || 
-                            item.iceCream?.flavors || 
-                            item.selectedFlavorList;
-
-            let extraInfo = [];
-            
-            if (size && size !== baseName) {
-                extraInfo.push(size);
+            // 1. 상품명 및 사이즈 설정
+            if (item.productType === 'ICE_CREAM') {
+                displayName = item.sizeName || item.name || '아이스크림';
+            } else {
+                const productName = item.name || item.menuName || '상품';
+                const sizePrefix = item.sizeName ? `(${item.sizeName}) ` : '';
+                displayName = `${sizePrefix}${productName}`;
             }
 
-            if (options && Array.isArray(options) && options.length > 0) {
-                const optionNames = options.map(o => {
-                    if (typeof o === 'string') return o;
-                    return o.name || o.flavorName || o.title || o.tasteName || '';
-                }).filter(Boolean).join(', ');
-
-                if (optionNames) {
-                    extraInfo.push(optionNames);
+            // 2. 💡 아이스크림류일 때만 맛 선택 정보 추출
+            if (item.productType === 'ICE_CREAM' && item.menus && Array.isArray(item.menus) && item.menus.length > 0) {
+                const flavorNames = item.menus.map(m => m.name || m).filter(Boolean);
+                if (flavorNames.length > 0) {
+                    flavorText = flavorNames.join(', ');
                 }
             }
 
-            let displayName = baseName;
-            if (extraInfo.length > 0) {
-                displayName = `${baseName} (${extraInfo.join(', ')})`;
+            // 3. 옵션 데이터 추출 (예: 샷 추가, 시럽 추가 등)
+            if (item.options) {
+                if (Array.isArray(item.options)) {
+                    optionsText = item.options.map(opt => (typeof opt === 'object' && opt !== null ? (opt.name || opt.label || '') : opt)).filter(Boolean).join(', ');
+                } else if (typeof item.options === 'object') {
+                    optionsText = item.options.name || item.options.label || '';
+                } else {
+                    optionsText = String(item.options);
+                }
             }
 
             return {
                 menuName: displayName,
-                price: item.price || item.menuPrice || item.amount || item.totalPrice || 0,
-                quantity: item.quantity || item.qty || 1
+                flavors: flavorText,   // 아이스크림에만 맛 정보가 담기고 모찌/커피는 빈 값 처리
+                options: optionsText,  
+                price: Number(item.unitPrice || item.price || 0),
+                quantity: Number(item.quantity || 1)
             };
         }),
         
@@ -118,16 +110,21 @@
         totalPrice: confirmResponse.data.receipt?.totalPrice || amount
     };
   
-      // 5. 세션 클리어 및 장바구니 초기화
+      // 5. 세션 클리어 및 장바구니 데이터 강제 초기화
       sessionStorage.removeItem("paymentData");
       sessionStorage.removeItem("orderData");
       
-      localStorage.removeItem("cart");
-      localStorage.removeItem("cartItems");
-      localStorage.removeItem("shoppingCart");
-      sessionStorage.removeItem("cart");
-      sessionStorage.removeItem("cartItems");
-  
+      // 프로젝트에서 사용될 수 있는 모든 장바구니 키 후보군 일괄 삭제
+      const cartKeys = ["cart", "cartItems", "shoppingCart", "basket", "cartList", "cart_items", "orderItems"];
+      cartKeys.forEach(key => {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+      });
+
+      // 💡 Pinia 또는 전역 상태/컴포넌트에서 장바구니 변경을 감지하도록 이벤트 전송
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('cart-cleared'));
+
       router.replace({
           name: "OrderComplete",
           query: { data: JSON.stringify(receipt) }

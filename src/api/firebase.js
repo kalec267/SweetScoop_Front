@@ -17,5 +17,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const analytics = getAnalytics(app);
 
-// 💡 'orders' 데이터베이스 명시적 연결
-export const db = getFirestore(app, "orders");
+// 💡 핵심: 데이터베이스 ID "default"를 인자로 정확히 전달합니다.
+export const db = getFirestore(app);
+
+console.log("현재 연결된 파이어베이스 프로젝트 ID:", getApp().options.projectId);
