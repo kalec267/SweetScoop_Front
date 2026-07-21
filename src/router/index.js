@@ -18,7 +18,8 @@ import Delivery from "../views/Delivery.vue";
 import Branch from "../views/Branch.vue";
 import MenuManagement from "../views/MenuManagement.vue";
 import BranchManagement from "../views/admin/BranchManagement.vue";
-import Promotion from '../views/Promotion.vue';
+import CouponManagement from "../views/CouponManagement.vue";
+import Promotion from "../views/Promotion.vue";
 
 // ========================================== 본사 물품 관리 화면
 // ==========================================
@@ -81,9 +82,33 @@ const routes = [
             role: "HQ"
         }
     }, {
+        path: "/members",
+        name: "MemberManagement",
+        component: () => import ("@/views/MemberManagement.vue"),
+        meta: {
+            requiresAuth: true,
+            role: "HQ"
+        }
+    }, {
+        path: "/admin/coupons",
+        name: "AdminCoupons",
+        component: CouponManagement,
+        meta: {
+            requiresAuth: true,
+            role: "HQ"
+        }
+    }, {
         path: "/menu-management",
         name: "MenuManagement",
         component: MenuManagement,
+        meta: {
+            requiresAuth: true,
+            role: "HQ"
+        }
+    }, {
+        path: "/event-management",
+        name: "Promotion",
+        component: Promotion,
         meta: {
             requiresAuth: true,
             role: "HQ"
@@ -113,15 +138,6 @@ const routes = [
             role: "HQ"
         }
     },
-    {
-  path: "/event-management",
-  name: "Promotion",
-  component: () => import("@/views/Promotion.vue"),
-  meta: {
-    requiresAuth: true
-  }
-},
-    
 
     // ========================================== 본사 관리자 물품 관리
     // ==========================================
@@ -168,7 +184,7 @@ const routes = [
         component: OrderRequest,
         meta: {
             requiresAuth: true,
-            role: "HQ" || "BRANCH"
+            roles: ["HQ", "BRANCH"]
         }
     }, {
         path: "/branch/inventory",
@@ -199,7 +215,8 @@ const routes = [
         name: "SalesDashboard",
         component: () => import ("../views/sales/SalesDashboard.vue"),
         meta: {
-            requiresAuth: true
+            requiresAuth: true,
+            roles: ["HQ", "BRANCH"]
         }
     },
 
@@ -207,15 +224,14 @@ const routes = [
     // ==========================================
     {
         path: "/:pathMatch(.*)*",
-        // 💡 화면이 완전히 깨지거나 멈추지 않도록 빈 컴포넌트 처리를 해줍니다.
+        name: "NotFound",
+        beforeEnter: () => {
+            window.alert("존재하지 않는 주소입니다.");
+
+            return {name: "Home"};
+        },
         component: {
             template: "<div></div>"
-        },
-
-        // 💡 이 주소에 진입하기 직전에 콘솔 로그를 트리거합니다.
-        beforeEnter: (to, from, next) => {
-            alert("존재하지 않는 주소입니다.");
-            next("");
         }
     }
 ];
@@ -226,7 +242,7 @@ const router = createRouter({
 });
 
 /**
- * 사용자 권한에 맞는 기본 화면을 반환합니다.
+ * 사용자 권한에 맞는 기본 화면 반환
  */
 const getDefaultRouteByRole = (role) => {
     if (role === "HQ") {
@@ -240,6 +256,28 @@ const getDefaultRouteByRole = (role) => {
     return {name: "Login"};
 };
 
+/**
+ * 라우트에 설정된 단일 권한 조회
+ */
+const getRequiredRole = (to) => {
+    return to
+        .matched
+        .map((routeRecord) => routeRecord.meta.role)
+        .find(Boolean);
+};
+
+/**
+ * 라우트에 설정된 복수 권한 조회
+ */
+const getAllowedRoles = (to) => {
+    const matchedRoles = to
+        .matched
+        .map((routeRecord) => routeRecord.meta.roles)
+        .find((roles) => Array.isArray(roles));
+
+    return matchedRoles || [];
+};
+
 // ========================================== 로그인 및 권한 검증
 // ==========================================
 router.beforeEach((to) => {
@@ -251,10 +289,9 @@ router.beforeEach((to) => {
         .matched
         .some((routeRecord) => routeRecord.meta.requiresAuth === true);
 
-    const requiredRole = to
-        .matched
-        .map((routeRecord) => routeRecord.meta.role)
-        .find(Boolean);
+    const requiredRole = getRequiredRole(to);
+
+    const allowedRoles = getAllowedRoles(to);
 
     // 로그인이 필요한 페이지인데 로그인하지 않은 경우
     if (requiresAuth && !isAuthenticated) {
@@ -273,12 +310,20 @@ router.beforeEach((to) => {
         return getDefaultRouteByRole(userRole);
     }
 
-    // 해당 페이지의 권한과 사용자 권한이 다른 경우
+    // 단일 권한이 설정된 페이지
     if (requiredRole && requiredRole !== userRole) {
         window.alert("해당 페이지에 접근할 권한이 없습니다.");
 
         return getDefaultRouteByRole(userRole);
     }
+
+    // 복수 권한이 설정된 페이지
+    if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+        window.alert("해당 페이지에 접근할 권한이 없습니다.");
+
+        return getDefaultRouteByRole(userRole);
+    }
+
     return true;
 });
 

@@ -61,6 +61,25 @@
               <span class="menu-icon">🏪</span>
               분점 관리
             </router-link>
+
+            <router-link
+              to="/members"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">👥</span>
+              회원 관리
+            </router-link>
+
+            <router-link
+              to="/admin/coupons"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">🎟️</span>
+              쿠폰 관리
+            </router-link>
+
           </div>
         </div>
 
@@ -185,6 +204,14 @@
               전체 매출 통계
             </router-link>
 
+            <router-link
+              to="/analytics"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">📉</span>
+              상세 매출 분석
+            </router-link>
           </div>
         </div>
       </template>
@@ -305,6 +332,14 @@
               지점 매출 통계
             </router-link>
 
+            <router-link
+              to="/analytics"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">📉</span>
+              상세 매출 분석
+            </router-link>
           </div>
         </div>
 

@@ -297,13 +297,13 @@
         if (isEditMode.value) {
 
             await axios.put(
-                `http://localhost:8888/promotion/${selectedPromotionId.value}`,
+                `/api/promotion/${selectedPromotionId.value}`,
                 promotionForm.value
             )
 
         } else {
 
-            await axios.post("http://localhost:8888/promotion", promotionForm.value)
+            await axios.post("/api/promotion", promotionForm.value)
 
         }
 
@@ -337,7 +337,7 @@
 
     const loadPromotion = async () => {
         try {
-            const res = await axios.get("http://localhost:8888/promotion")
+            const res = await axios.get("/api/promotion")
 
             console.log("API 원본:", res.data)
 
@@ -427,7 +427,7 @@
             return
 
         try {
-            await axios.delete(`http://localhost:8888/promotion/${id}`)
+            await axios.delete(`/api/promotion/${id}`)
 
             alert("삭제되었습니다.")
 
