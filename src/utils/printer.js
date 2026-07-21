@@ -49,7 +49,7 @@ export const PrinterService = {
 
     // 3. 서버 전송 로직 추가 (172.16.15.97:77777/receipt)
     try {
-      const response = await fetch('http://localhost:8888/api/printer/print', {  
+      const response = await fetch('/api/printer/print', {  
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
