@@ -1004,12 +1004,15 @@
     .item-info h4,
     .item-info p {
         margin: 0;
+        font-size: 20px;
+        font-weight: bold;
     }
 
     .item-info p {
         margin-top: 4px;
         color: #777;
         font-size: 12px;
+        font-weight: bold;
     }
 
     .payment-method-list {

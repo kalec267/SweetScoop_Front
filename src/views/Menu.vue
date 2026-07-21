@@ -55,22 +55,14 @@
     const cartItems = ref([]);
     const showCart = ref(false);
 
-    const cartCount = computed(() =>
-        cartItems.value.reduce(
-            (sum, item) => sum + (Number(item.quantity) || 1),
-            0
-        )
+    const cartCount = computed(
+        () => cartItems.value.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0)
     );
 
-    const cartTotalPrice = computed(() =>
-        cartItems.value.reduce(
-            (sum, item) =>
-                sum +
-                (Number(item.unitPrice ?? item.totalPrice) || 0) *
-                (Number(item.quantity) || 1),
-            0
-        )
-    );
+    const cartTotalPrice = computed(() => cartItems.value.reduce(
+        (sum, item) => sum + (Number(item.unitPrice ?? item.totalPrice) || 0) * (Number(item.quantity) || 1),
+        0
+    ));
 
     const loadCart = () => {
         try {
@@ -81,7 +73,9 @@
             }
 
             const parsed = JSON.parse(saved);
-            cartItems.value = Array.isArray(parsed.items) ? parsed.items : [];
+            cartItems.value = Array.isArray(parsed.items)
+                ? parsed.items
+                : [];
         } catch (error) {
             console.error("장바구니 불러오기 실패:", error);
             cartItems.value = [];
@@ -90,16 +84,13 @@
     };
 
     const saveCart = () => {
-        sessionStorage.setItem(
-            "cartData",
-            JSON.stringify({
-                orderType: orderType || "TAKEOUT",
-                customerId: null,
-                branchId: 1,
-                kioskId: 1,
-                items: cartItems.value
-            })
-        );
+        sessionStorage.setItem("cartData", JSON.stringify({
+            orderType: orderType || "TAKEOUT",
+            customerId: null,
+            branchId: 1,
+            kioskId: 1,
+            items: cartItems.value
+        }));
     };
 
     const restoreSavedSelections = () => {
@@ -113,7 +104,11 @@
             try {
                 const parsedCart = JSON.parse(savedCart);
                 if (Array.isArray(parsedCart.items) && parsedCart.items.length > 0) {
-                    selectedMenusByCategory.value = { 1: [], 2: [], 3: [] };
+                    selectedMenusByCategory.value = {
+                        1: [],
+                        2: [],
+                        3: []
+                    };
                     sessionStorage.removeItem("orderData");
                     return;
                 }
@@ -141,29 +136,24 @@
  * sizeId가 있다는 것은
  * 새 사이즈를 선택하고 맛 선택 화면으로 왔다는 의미
  */
-if (
-    !sizeId &&
-    savedData.iceCream?.flavors?.length > 0
-) {
-    selectedMenusByCategory.value[1] =
-        savedData.iceCream.flavors.map(
-            flavor => ({
-                id: Number(
-                    flavor.menuId ||
-                    flavor.id
-                ),
+            if (
+                !sizeId && savedData.iceCream
+                    ?.flavors
+                        ?.length > 0
+            ) {
+                selectedMenusByCategory.value[1] = savedData
+                    .iceCream
+                    .flavors
+                    .map(flavor => ({
+                        id: Number(flavor.menuId || flavor.id),
 
-                menuId: Number(
-                    flavor.menuId ||
-                    flavor.id
-                ),
+                        menuId: Number(flavor.menuId || flavor.id),
 
-                categoryId: 1,
-                name: flavor.name,
-                menuImg: flavor.menuImg
-            })
-        );
-}
+                        categoryId: 1,
+                        name: flavor.name,
+                        menuImg: flavor.menuImg
+                    }));
+            }
 
             /*
          * 이전 아이스모찌 복원
@@ -215,15 +205,12 @@ if (
                             ? Number(item.sizeId)
                             : null,
                         sizeName: item.sizeName || null,
-                        sizeAdditionalPrice:
-                            Number(item.sizeAdditionalPrice) || 0,
+                        sizeAdditionalPrice: Number(item.sizeAdditionalPrice) || 0,
 
                         optionPrice: Number(item.optionPrice) || 0,
 
                         totalPrice: Number(item.totalPrice) || (
-                            Number(item.price || 0) +
-                            Number(item.sizeAdditionalPrice || 0) +
-                            Number(item.optionPrice || 0)
+                            Number(item.price || 0) + Number(item.sizeAdditionalPrice || 0) + Number(item.optionPrice || 0)
                         ),
 
                         options: item.options || []
@@ -333,7 +320,9 @@ if (
         try {
             const response = await api.get(`/api/menu/category/${categoryId}`);
 
-            const menuList = Array.isArray(response.data) ? response.data : [];
+            const menuList = Array.isArray(response.data)
+                ? response.data
+                : [];
 
             menus.value = menuList.map(menu => ({
                 ...menu,
@@ -437,11 +426,13 @@ if (
  * 처음 화면
  */
     const goHome = () => {
-        const hasOrder =
-            cartItems.value.length > 0 ||
-            selectedMenusByCategory.value[1].length > 0 ||
-            selectedMenusByCategory.value[2].length > 0 ||
-            selectedMenusByCategory.value[3].length > 0;
+        const hasOrder = cartItems.value.length > 0 || selectedMenusByCategory
+            .value[1]
+            .length > 0 || selectedMenusByCategory
+            .value[2]
+            .length > 0 || selectedMenusByCategory
+            .value[3]
+            .length > 0;
 
         if (hasOrder && !window.confirm("현재 주문을 취소하고 처음 화면으로 이동할까요?")) {
             return;
@@ -471,25 +462,34 @@ if (
                 return;
             }
 
-            cartItems.value.push({
-                cartItemId: `ICE-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                productType: "ICE_CREAM",
-                name: sizeInfo.value.name || "아이스크림",
-                menuImg: flavors[0]?.menuImg || null,
-                cupId: cupId != null ? Number(cupId) : null,
-                cupName: selectedCup.value?.name || null,
-                sizeId: Number(sizeId),
-                sizeName: sizeInfo.value.name || null,
-                quantity: 1,
-                unitPrice: totalPrice.value,
-                totalPrice: totalPrice.value,
-                menus: flavors.map(menu => ({
-                    menuId: Number(menu.menuId || menu.id),
-                    name: menu.name,
-                    menuImg: menu.menuImg
-                })),
-                options: []
-            });
+            cartItems
+                .value
+                .push({
+                    cartItemId: `ICE-${Date.now()}-${Math
+                        .random()
+                        .toString(36)
+                        .slice(2, 7)}`,
+                    productType: "ICE_CREAM",
+                    name: sizeInfo.value.name || "아이스크림",
+                    menuImg: flavors[0]
+                        ?.menuImg || null,
+                    cupId: cupId != null
+                        ? Number(cupId)
+                        : null,
+                    cupName: selectedCup.value
+                        ?.name || null,
+                    sizeId: Number(sizeId),
+                    sizeName: sizeInfo.value.name || null,
+                    quantity: 1,
+                    unitPrice: totalPrice.value,
+                    totalPrice: totalPrice.value,
+                    menus: flavors.map(menu => ({
+                        menuId: Number(menu.menuId || menu.id),
+                        name: menu.name,
+                        menuImg: menu.menuImg
+                    })),
+                    options: []
+                });
         } else {
             const selected = selectedMenusByCategory.value[selectedCategory.value];
 
@@ -504,28 +504,41 @@ if (
                     ? Number(menu.unitPrice ?? menu.totalPrice) || 0
                     : Number(menu.price ?? menu.totalPrice) || 0;
 
-                cartItems.value.push({
-                    cartItemId: `${isCoffee ? "COFFEE" : "MOCHI"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                    productType: isCoffee ? "COFFEE" : "MOCHI",
-                    name: menu.name,
-                    menuImg: menu.menuImg || null,
-                    cupId: null,
-                    sizeId: menu.sizeId != null ? Number(menu.sizeId) : null,
-                    sizeName: menu.sizeName || null,
-                    quantity: 1,
-                    unitPrice,
-                    totalPrice: unitPrice,
-                    menus: [{
-                        menuId: Number(menu.menuId || menu.id),
+                cartItems
+                    .value
+                    .push({
+                        cartItemId: `${isCoffee
+                            ? "COFFEE"
+                            : "MOCHI"}-${Date.now()}-${Math
+                                .random()
+                                .toString(36)
+                                .slice(2, 8)}`,
+                        productType: isCoffee
+                            ? "COFFEE"
+                            : "MOCHI",
                         name: menu.name,
-                        menuImg: menu.menuImg
-                    }],
-                    options: (menu.options || []).map(option => ({
-                        menuOptionId: Number(option.menuOptionId || option.id),
-                        name: option.name,
-                        price: Number(option.price) || 0
-                    }))
-                });
+                        menuImg: menu.menuImg || null,
+                        cupId: null,
+                        sizeId: menu.sizeId != null
+                            ? Number(menu.sizeId)
+                            : null,
+                        sizeName: menu.sizeName || null,
+                        quantity: 1,
+                        unitPrice,
+                        totalPrice: unitPrice,
+                        menus: [
+                            {
+                                menuId: Number(menu.menuId || menu.id),
+                                name: menu.name,
+                                menuImg: menu.menuImg
+                            }
+                        ],
+                        options: (menu.options || []).map(option => ({
+                            menuOptionId: Number(option.menuOptionId || option.id),
+                            name: option.name,
+                            price: Number(option.price) || 0
+                        }))
+                    });
             });
         }
 
@@ -535,8 +548,9 @@ if (
     };
 
     const increaseQuantity = (index) => {
-        cartItems.value[index].quantity =
-            (Number(cartItems.value[index].quantity) || 1) + 1;
+        cartItems
+            .value[index]
+            .quantity = (Number(cartItems.value[index].quantity) || 1) + 1;
         saveCart();
     };
 
@@ -546,12 +560,16 @@ if (
             removeCartItem(index);
             return;
         }
-        cartItems.value[index].quantity = quantity - 1;
+        cartItems
+            .value[index]
+            .quantity = quantity - 1;
         saveCart();
     };
 
     const removeCartItem = (index) => {
-        cartItems.value.splice(index, 1);
+        cartItems
+            .value
+            .splice(index, 1);
         saveCart();
     };
 
@@ -559,7 +577,9 @@ if (
         showCart.value = false;
         router.push({
             path: "/size",
-            query: { orderType: orderType || "TAKEOUT" }
+            query: {
+                orderType: orderType || "TAKEOUT"
+            }
         });
     };
 
@@ -581,34 +601,29 @@ if (
             branchId: 1,
             kioskId: 1,
 
-            items: cartItems.value.map(item => ({
-                ...item,
-                quantity: Number(item.quantity) || 1,
-                unitPrice:
-                    Number(item.unitPrice ?? item.totalPrice) || 0,
-                totalPrice:
-                    (Number(item.unitPrice ?? item.totalPrice) || 0) *
-                    (Number(item.quantity) || 1),
-                menus: Array.isArray(item.menus)
-                    ? item.menus
-                    : [],
-                options: Array.isArray(item.options)
-                    ? item.options
-                    : []
-            })),
+            items: cartItems
+                .value
+                .map(item => ({
+                    ...item,
+                    quantity: Number(item.quantity) || 1,
+                    unitPrice: Number(item.unitPrice ?? item.totalPrice) || 0,
+                    totalPrice: (Number(item.unitPrice ?? item.totalPrice) || 0) * (
+                        Number(item.quantity) || 1
+                    ),
+                    menus: Array.isArray(item.menus)
+                        ? item.menus
+                        : [],
+                    options: Array.isArray(item.options)
+                        ? item.options
+                        : []
+                })),
 
             member: null
         };
 
-        sessionStorage.setItem(
-            "orderData",
-            JSON.stringify(unifiedOrderData)
-        );
+        sessionStorage.setItem("orderData", JSON.stringify(unifiedOrderData));
 
-        console.log(
-            "결제 페이지로 전달할 주문 데이터:",
-            unifiedOrderData
-        );
+        console.log("결제 페이지로 전달할 주문 데이터:", unifiedOrderData);
 
         router.push("/payment");
     };
@@ -639,14 +654,15 @@ if (
                 ? response.data
                 : [];
 
-            const regularSize = coffeeSizes.value.find(
-                size => ["regular", "(r)", "r"].includes(String(size.name || "").trim().toLowerCase())
-            );
+            const regularSize = coffeeSizes
+                .value
+                .find(
+                    size => ["regular", "(r)", "r"].includes(String(size.name || "").trim().toLowerCase())
+                );
 
-            selectedCoffeeSizeId.value =
-                regularSize?.id ??
-                coffeeSizes.value[0]?.id ??
-                null;
+            selectedCoffeeSizeId.value = regularSize
+                ?.id ?? coffeeSizes.value[0]
+                    ?.id ?? null;
         } catch (error) {
             console.error("커피 사이즈 조회 실패:", error);
             coffeeSizes.value = [];
@@ -692,9 +708,9 @@ if (
             return;
         }
 
-        const index = selectedMenus.value.findIndex(
-            item => Number(item.id) === Number(menu.id)
-        );
+        const index = selectedMenus
+            .value
+            .findIndex(item => Number(item.id) === Number(menu.id));
 
         /*
          * 아이스크림과 아이스모찌는 같은 메뉴를 다시 누르면 제거
@@ -754,14 +770,15 @@ if (
          * 이미 사이즈 목록을 불러온 상태라면 Regular를 기본 선택
          */
         if (!selectedCoffeeSizeId.value) {
-            const regularSize = coffeeSizes.value.find(
-                size => ["regular", "(r)", "r"].includes(String(size.name || "").trim().toLowerCase())
-            );
+            const regularSize = coffeeSizes
+                .value
+                .find(
+                    size => ["regular", "(r)", "r"].includes(String(size.name || "").trim().toLowerCase())
+                );
 
-            selectedCoffeeSizeId.value =
-                regularSize?.id ??
-                coffeeSizes.value[0]?.id ??
-                null;
+            selectedCoffeeSizeId.value = regularSize
+                ?.id ?? coffeeSizes.value[0]
+                    ?.id ?? null;
         }
 
         showOptionModal.value = true;
@@ -790,13 +807,16 @@ if (
     };
 
     const selectedCoffeeSize = computed(() => {
-        return coffeeSizes.value.find(
-            size => Number(size.id) === Number(selectedCoffeeSizeId.value)
-        ) || null;
+        return coffeeSizes
+            .value
+            .find(size => Number(size.id) === Number(selectedCoffeeSizeId.value)) || null;
     });
 
     const coffeeSizeAdditionalPrice = computed(() => {
-        return Number(selectedCoffeeSize.value?.price) || 0;
+        return Number(
+            selectedCoffeeSize.value
+                ?.price
+        ) || 0;
     });
 
     const selectedOptionPrice = computed(() => {
@@ -813,9 +833,7 @@ if (
         ) || 0;
 
         return (
-            menuPrice +
-            coffeeSizeAdditionalPrice.value +
-            selectedOptionPrice.value
+            menuPrice + coffeeSizeAdditionalPrice.value + selectedOptionPrice.value
         );
     });
 
@@ -838,11 +856,9 @@ if (
                 price: Number(option.price) || 0
             }));
 
-        const basePrice =
-            Number(optionTargetMenu.value.price) || 0;
+        const basePrice = Number(optionTargetMenu.value.price) || 0;
 
-        const sizeAdditionalPrice =
-            Number(selectedCoffeeSize.value.price) || 0;
+        const sizeAdditionalPrice = Number(selectedCoffeeSize.value.price) || 0;
 
         const optionPrice = selectedOptions.reduce(
             (sum, option) => sum + (Number(option.price) || 0),
@@ -855,7 +871,8 @@ if (
             /*
              * 같은 커피를 여러 번 담을 수 있도록 선택 인스턴스 ID 부여
              */
-            selectionId: `COFFEE-${Date.now()}-${Math.random()
+            selectionId: `COFFEE-${Date.now()}-${Math
+                .random()
                 .toString(36)
                 .slice(2, 8)}`,
 
@@ -869,18 +886,14 @@ if (
             /*
              * 커피 기본가 + 사이즈 추가금 + 옵션 금액
              */
-            unitPrice:
-                basePrice +
-                sizeAdditionalPrice +
-                optionPrice,
+            unitPrice: basePrice + sizeAdditionalPrice + optionPrice,
 
-            totalPrice:
-                basePrice +
-                sizeAdditionalPrice +
-                optionPrice
+            totalPrice: basePrice + sizeAdditionalPrice + optionPrice
         };
 
-        selectedMenus.value.push(coffeeItem);
+        selectedMenus
+            .value
+            .push(coffeeItem);
 
         saveOrderData();
         closeOptionModal();
@@ -913,72 +926,47 @@ if (
         /*
      * 현재 선택한 메뉴들을 카테고리별로 구분
      */
-        orderData.mochi =
-    selectedMenusByCategory.value[2]
-        .map(item => ({
-            menuId:
-                Number(
-                    item.menuId ||
-                    item.id
-                ),
+        orderData.mochi = selectedMenusByCategory
+            .value[2]
+            .map(item => ({
+                menuId: Number(item.menuId || item.id),
 
-            name: item.name,
-            menuImg: item.menuImg,
+                name: item.name,
+                menuImg: item.menuImg,
 
-            price:
-                Number(item.price) || 0,
+                price: Number(item.price) || 0,
 
-            totalPrice:
-                Number(item.totalPrice) ||
-                Number(item.price) ||
-                0,
+                totalPrice: Number(item.totalPrice) || Number(item.price) || 0,
 
-            options:
-                item.options || []
-        }));
+                options: item.options || []
+            }));
 
-orderData.coffee =
-    selectedMenusByCategory.value[3]
-        .map(item => ({
-            menuId:
-                Number(
-                    item.menuId ||
-                    item.id
-                ),
+        orderData.coffee = selectedMenusByCategory
+            .value[3]
+            .map(item => ({
+                menuId: Number(item.menuId || item.id),
 
-            name: item.name,
-            menuImg: item.menuImg,
+                name: item.name,
+                menuImg: item.menuImg,
 
-            price:
-                Number(item.price) || 0,
+                price: Number(item.price) || 0,
 
-            sizeId:
-                item.sizeId != null
+                sizeId: item.sizeId != null
                     ? Number(item.sizeId)
                     : null,
 
-            sizeName:
-                item.sizeName || null,
+                sizeName: item.sizeName || null,
 
-            sizeAdditionalPrice:
-                Number(item.sizeAdditionalPrice) || 0,
+                sizeAdditionalPrice: Number(item.sizeAdditionalPrice) || 0,
 
-            optionPrice:
-                Number(
-                    item.optionPrice
-                ) || 0,
+                optionPrice: Number(item.optionPrice) || 0,
 
-            totalPrice:
-                Number(item.totalPrice) ||
-                (
-                    Number(item.price || 0) +
-                    Number(item.sizeAdditionalPrice || 0) +
-                    Number(item.optionPrice || 0)
+                totalPrice: Number(item.totalPrice) || (
+                    Number(item.price || 0) + Number(item.sizeAdditionalPrice || 0) + Number(item.optionPrice || 0)
                 ),
 
-            options:
-                item.options || []
-        }));
+                options: item.options || []
+            }));
 
         sessionStorage.setItem("orderData", JSON.stringify(orderData));
 
@@ -1005,7 +993,11 @@ orderData.coffee =
         }
 
         if (hasCartItems) {
-            selectedMenusByCategory.value = { 1: [], 2: [], 3: [] };
+            selectedMenusByCategory.value = {
+                1: [],
+                2: [],
+                3: []
+            };
             sessionStorage.removeItem("orderData");
         } else {
             restoreSavedSelections();
@@ -1409,33 +1401,41 @@ orderData.coffee =
                 <p v-if="cartItems.length === 0" class="cart-empty">장바구니가 비어 있습니다.</p>
 
                 <div v-else class="cart-list">
-                    <article v-for="(item, index) in cartItems" :key="item.cartItemId" class="cart-item">
-                        <img v-if="item.menuImg" :src="item.menuImg" :alt="item.name" />
+                    <article
+                        v-for="(item, index) in cartItems"
+                        :key="item.cartItemId"
+                        class="cart-item">
+                        <img v-if="item.menuImg" :src="item.menuImg" :alt="item.name"/>
                         <div class="cart-item-info">
                             <h3>{{ item.name }}</h3>
 
                             <template v-if="item.productType === 'ICE_CREAM'">
                                 <p v-if="item.sizeName">
-                                    사이즈: {{ item.sizeName }}
+                                    사이즈:
+                                    {{ item.sizeName }}
                                 </p>
 
                                 <p v-if="item.cupName">
-                                    제공 형태: {{ item.cupName }}
+                                    제공 형태:
+                                    {{ item.cupName }}
                                 </p>
 
                                 <p v-if="item.menus?.length" class="cart-flavor-list">
-                                    선택한 맛: {{ item.menus.map(menu => menu.name).join(', ') }}
+                                    선택한 맛:
+                                    {{ item.menus.map(menu => menu.name).join(', ') }}
                                 </p>
                             </template>
 
                             <template v-else>
                                 <p v-if="item.sizeName">
-                                    사이즈: {{ item.sizeName }}
+                                    사이즈:
+                                    {{ item.sizeName }}
                                 </p>
                             </template>
 
                             <p v-if="item.options?.length">
-                                옵션: {{ item.options.map(option => option.name).join(', ') }}
+                                옵션:
+                                {{ item.options.map(option => option.name).join(', ') }}
                             </p>
                             <strong>{{ (Number(item.unitPrice) * Number(item.quantity || 1)).toLocaleString() }}원</strong>
                         </div>
@@ -1455,7 +1455,11 @@ orderData.coffee =
 
                 <div class="cart-actions">
                     <button type="button" class="continue" @click="continueShopping">메뉴 더 담기</button>
-                    <button type="button" class="pay" :disabled="cartItems.length === 0" @click="goPayment">결제하기</button>
+                    <button
+                        type="button"
+                        class="pay"
+                        :disabled="cartItems.length === 0"
+                        @click="goPayment">결제하기</button>
                 </div>
             </section>
         </div>
@@ -1463,7 +1467,8 @@ orderData.coffee =
         <!-- 하단 -->
         <footer class="bottom-bar cart-bottom-bar">
             <button type="button" class="bottom-button previous" @click="showCart = true">
-                장바구니 {{ cartCount }}
+                장바구니
+                {{ cartCount }}
             </button>
 
             <button
@@ -1540,7 +1545,7 @@ orderData.coffee =
 
     .top-home-button {
         height: 36px;
-        padding: 0 0px;
+        padding: 0;
         border: 0;
         border-radius: 20px;
         background: #fff0f7;
@@ -2026,8 +2031,8 @@ orderData.coffee =
         background: #fff2f8;
     }
 
-    .coffee-size-button.selected strong,
-    .coffee-size-button.selected span {
+    .coffee-size-button.selected span,
+    .coffee-size-button.selected strong {
         color: #ff1493;
     }
 
@@ -2154,31 +2159,123 @@ orderData.coffee =
     }
 
     .cart-overlay {
-        position: fixed; inset: 0; z-index: 100;
-        display: flex; align-items: flex-end; justify-content: center;
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
         background: rgba(0,0,0,.45);
     }
     .cart-panel {
-        width: min(100%, 540px); max-height: 86vh; overflow-y: auto;
-        padding: 22px 18px 24px; border-radius: 26px 26px 0 0; background: #fff;
+        width: min(100%, 540px);
+        max-height: 86vh;
+        overflow-y: auto;
+        padding: 22px 18px 24px;
+        border-radius: 26px 26px 0 0;
+        background: #fff;
     }
-    .cart-header, .cart-total, .cart-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-    .cart-header h2 { margin:4px 0 0; }
-    .cart-header > button { border:0; background:transparent; font-size:30px; cursor:pointer; }
-    .cart-list { display:grid; gap:12px; margin:18px 0; }
-    .cart-item { display:grid; grid-template-columns:70px 1fr auto; gap:12px; align-items:center; padding:12px; border:1px solid #f1d5e4; border-radius:16px; }
-    .cart-item img { width:68px; height:68px; object-fit:contain; }
-    .cart-item-info h3 { margin:0 0 5px; font-size:14px; }
-    .cart-item-info p { margin:2px 0; color:#777; font-size:11px; }
-    .cart-item-info .cart-flavor-list { color:#555; line-height:1.45; }
-    .cart-item-info strong { display:block; margin-top:6px; color:#ff1493; }
-    .quantity-control { display:grid; grid-template-columns:30px 28px 30px; gap:4px; align-items:center; text-align:center; }
-    .quantity-control button { height:30px; border:1px solid #ddd; border-radius:9px; background:#fff; cursor:pointer; }
-    .quantity-control .remove { grid-column:1 / 4; color:#d33; }
-    .cart-total { padding:16px 2px; border-top:1px solid #eee; font-size:18px; }
-    .cart-total strong { color:#ff1493; font-size:22px; }
-    .cart-actions button { flex:1; height:52px; border-radius:26px; font-weight:800; cursor:pointer; }
-    .cart-actions .continue { border:1px solid #ff1493; background:#fff; color:#ff1493; }
-    .cart-actions .pay { border:0; background:#ff1493; color:#fff; }
-    .cart-empty { padding:50px 0; text-align:center; color:#999; }
+    .cart-actions,
+    .cart-header,
+    .cart-total {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+    .cart-header h2 {
+        margin: 4px 0 0;
+    }
+    .cart-header > button {
+        border: 0;
+        background: transparent;
+        font-size: 30px;
+        cursor: pointer;
+    }
+    .cart-list {
+        display: grid;
+        gap: 12px;
+        margin: 18px 0;
+    }
+    .cart-item {
+        display: grid;
+        grid-template-columns: 70px 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+        border: 1px solid #f1d5e4;
+        border-radius: 16px;
+    }
+    .cart-item img {
+        width: 68px;
+        height: 68px;
+        object-fit: contain;
+    }
+    .cart-item-info h3 {
+        margin: 0 0 5px;
+        font-size: 14px;
+    }
+    .cart-item-info p {
+        margin: 2px 0;
+        color: #777;
+        font-size: 11px;
+    }
+    .cart-item-info .cart-flavor-list {
+        color: #555;
+        line-height: 1.45;
+    }
+    .cart-item-info strong {
+        display: block;
+        margin-top: 6px;
+        color: #ff1493;
+    }
+    .quantity-control {
+        display: grid;
+        grid-template-columns: 30px 28px 30px;
+        gap: 4px;
+        align-items: center;
+        text-align: center;
+    }
+    .quantity-control button {
+        height: 30px;
+        border: 1px solid #ddd;
+        border-radius: 9px;
+        background: #fff;
+        cursor: pointer;
+    }
+    .quantity-control .remove {
+        grid-column: 1 / 4;
+        color: #d33;
+    }
+    .cart-total {
+        padding: 16px 2px;
+        border-top: 1px solid #eee;
+        font-size: 18px;
+    }
+    .cart-total strong {
+        color: #ff1493;
+        font-size: 22px;
+    }
+    .cart-actions button {
+        flex: 1;
+        height: 52px;
+        border-radius: 26px;
+        font-weight: 800;
+        cursor: pointer;
+    }
+    .cart-actions .continue {
+        border: 1px solid #ff1493;
+        background: #fff;
+        color: #ff1493;
+    }
+    .cart-actions .pay {
+        border: 0;
+        background: #ff1493;
+        color: #fff;
+    }
+    .cart-empty {
+        padding: 50px 0;
+        text-align: center;
+        color: #999;
+    }
 </style>
