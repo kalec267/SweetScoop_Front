@@ -15,7 +15,7 @@
           class="branch-select"
         >
           <option v-for="b in branchList" :key="b.id" :value="b.id">
-            {{ b.branchName }} {{ userRole === 'BRANCH' && b.id === myBranchId ? '(내 매장)' : '' }}
+            {{ b.branchName }}
           </option>
         </select>
         <button class="btn-refresh" @click="fetchMyOrders">🔄 새로고침</button>
