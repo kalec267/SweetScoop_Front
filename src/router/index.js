@@ -12,8 +12,7 @@ import Menu from "../views/Menu.vue";
 import Login from "../views/Login.vue";
 import Dashboard from "../views/Dashboard.vue";
 import BranchDashboard from "../views/BranchDashboard.vue";
-import OrderRequest from "../views/OrderRequest.vue";
-import Inventory from "../views/Inventory.vue";
+import BranchOrderHistory from "../views/inventory/BranchOrderHistory.vue";
 import Delivery from "../views/Delivery.vue";
 import Branch from "../views/Branch.vue";
 import MenuManagement from "../views/MenuManagement.vue";
@@ -21,6 +20,7 @@ import BranchManagement from "../views/admin/BranchManagement.vue";
 import CouponManagement from "../views/CouponManagement.vue";
 import Promotion from "../views/Promotion.vue";
 import KioskControlView from "../views/kioskControlView.vue"
+import BranchInventoryView from "../views/inventory/BranchInventoryView.vue";
 
 // ========================================== 본사 물품 관리 화면
 // ==========================================
@@ -181,37 +181,36 @@ const routes = [
         }
     }, {
         path: "/branch/order-request",
-        name: "OrderRequest",
-        component: OrderRequest,
-        meta: {
-            requiresAuth: true,
-            roles: ["HQ", "BRANCH"]
-        }
-    }, {
-        path: "/branch/inventory",
-        name: "Inventory",
-        component: Inventory,
+        name: "BranchOrderHistory",
+        component: BranchOrderHistory,
         meta: {
             requiresAuth: true,
             role: "BRANCH"
         }
-    }, 
+    }, {
+        path: "/branch/inventory",
+        name: "BranchInventory",
+        component: BranchInventoryView,
+        meta: {
+            requiresAuth: true
+        }
+    },
 
-    //분점 키오스크 활성화 화면 
+    //분점 키오스크 활성화 화면
     {
         path: '/branch/kiosk-control',
         name: 'KioskControlView',
         component: KioskControlView,
         meta: {
             requiresAuth: true
-        },
+        }
     },
     // ========================================== 지점 재고 관리
     // ==========================================
     {
         path: "/inventory/branch-inventory",
         name: "BranchInven",
-        component: () => import("../views/inventory/BranchInventoryView.vue"),
+        component: () => import ("../views/inventory/BranchInventoryView.vue"),
         meta: {
             requiresAuth: true,
             role: "HQ"
@@ -228,7 +227,6 @@ const routes = [
             role: "HQ"
         }
     },
-    
 
     // ========================================== 매출 관리
     // ==========================================

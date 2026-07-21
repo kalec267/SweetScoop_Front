@@ -104,7 +104,6 @@
               <span v-if="stock.stockLevel < 50000" class="badge bg-danger">🚨 본사 재고 부족 (비상)</span>
               <span v-else class="badge bg-success">보유고 넉넉</span>
             </td>
-            <!-- 본사 재고가 적을 때 클릭 한 번으로 충전할 수 있는 컨트롤 버튼 추가 -->
             <td class="text-center">
               <button class="btn-factory-charge" @click="chargeStockFromFactory(stock.itemId)">
                 🏭 공장 수급신청
@@ -121,7 +120,7 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api from '@/api';
 
 export default {
   name: 'HqOrderManagement',
@@ -130,25 +129,10 @@ export default {
       currentTab: 'orders', 
       orderList: [],
       hqStockList: [],      
+      itemList: [],         // DB에서 읽어온 전체 자재 목록
+      itemMap: {},          // ID별 Item 객체 매핑용
       currentPage: 1,
-      itemsPerPage: 10,
-      itemMap: {
-        1: '엄마는 외계인 튜브(1000g)',
-        2: '아몬드 봉봉 튜브(1000g)',
-        3: '민트 초콜릿 칩 튜브(1000g)',
-        4: '두바이에서 온 엄마는 외계인(1000g)',
-        5: '오레오 쿠키 앤 밀크(1000g)',
-        6: '그린티(1000g)',
-        7: '애플민트(1000g)',
-        8: '뉴욕 치즈케이크(1000g)',
-        9: '바람과 함께 사라지다(1000g)',
-        13: '아이스 모찌 소금우유(ea)',
-        14: '아이스 모찌 그린티(ea)',
-        15: '아이스 모찌 스트로베리(ea)',
-        16: '아이스 모찌 초코바닐라(ea)',
-        17: '아이스 모찌 크림치즈(ea)',
-        18: '에스프레소 원두(1000g)'
-      }
+      itemsPerPage: 10
     };
   },
   computed: {
@@ -162,82 +146,125 @@ export default {
     }
   },
   mounted() {
+    this.fetchItems();
     this.fetchHqOrders();
   },
   methods: {
+    async fetchItems() {
+      try {
+        const response = await api.get('/api/inventory/items');
+        
+        if (Array.isArray(response.data)) {
+          this.itemList = response.data;
+          const map = {};
+          this.itemList.forEach(item => {
+            map[item.id] = item;
+          });
+          this.itemMap = map;
+        } else {
+          console.warn("원자재 목록이 배열 형태가 아닙니다:", response.data);
+          this.itemList = [];
+        }
+      } catch (error) {
+        console.error("원자재 목록 로드 실패:", error);
+      }
+    },
+
     switchTabToStock() {
       this.currentTab = 'stock';
       this.fetchHqStock();
     },
+
     async fetchHqOrders() {
       try {
-        const response = await axios.get('/inventory/hq/orders');
-        this.orderList = response.data.sort((a, b) => {
-          if (a.approvalStatus === 'PENDING' && b.approvalStatus !== 'PENDING') return -1;
-          if (a.approvalStatus !== 'PENDING' && b.approvalStatus === 'PENDING') return 1;
-          return b.hqInventoryId - a.hqInventoryId;
-        });
+        const response = await api.get('/api/inventory/hq/orders');
+        
+        if (Array.isArray(response.data)) {
+          this.orderList = response.data.sort((a, b) => {
+            if (a.approvalStatus === 'PENDING' && b.approvalStatus !== 'PENDING') return -1;
+            if (a.approvalStatus !== 'PENDING' && b.approvalStatus === 'PENDING') return 1;
+            return b.hqInventoryId - a.hqInventoryId;
+          });
+        } else {
+          console.warn("발주 목록 데이터가 배열이 아닙니다:", response.data);
+          this.orderList = [];
+        }
         this.currentPage = 1;
       } catch (error) {
         console.error("발주 목록 로드 실패:", error);
       }
     },
+
     async fetchHqStock() {
       try {
-        const response = await axios.get('/inventory/hq/stock');
+        const response = await api.get('/api/inventory/hq/stock');
         this.hqStockList = response.data;
       } catch (error) {
         console.error("본사 실시간 재고 연동 실패:", error);
       }
     },
+
     async approveOrder(hqInventoryId) {
       if (!confirm("해당 발주 건을 승인하시겠습니까?\n승인 시 본사 창고 재고 차감 및 지점 재고 가산이 실시간 처리됩니다.")) return;
 
       try {
-        const params = new URLSearchParams();
-        params.append('hqInventoryId', hqInventoryId);
+        // 🌟 URLSearchParams 대신 params 옵션으로 전달
+        const response = await api.post('/api/inventory/in/hq', null, {
+          params: { hqInventoryId }
+        });
 
-        const response = await axios.post('/inventory/in/hq', params);
         if (response.status === 200) {
           alert("승인 처리가 완료되었습니다!");
           this.fetchHqOrders(); 
         }
       } catch (error) {
+        // 백엔드 예외 메시지 출력
         const errorMsg = error.response?.data || "발주 승인 처리 중 에러가 발생했습니다.";
         alert(`❌ 승인 실패: ${errorMsg}`);
       }
     },
-    // 화면에서 공장에 본사 재고 입고(충전)를 수동 요청하는 메서드
-    async chargeStockFromFactory(itemId) {
-      // 품목별 안전 충전 단위 설정 (모찌는 1000개, 액상 아이스크림은 200,000g)
-      const chargeAmount = (itemId >= 13 && itemId <= 17) ? 1000 : 200000;
-      const itemName = this.getItemName(itemId);
 
-      if (!confirm(`🏭 [공장 원재료 매입 요청]\n공장 제조 라인에 [ ${itemName} ${this.formatNumber(chargeAmount)}g/ea ] 공급을 요청하시겠습니까?`)) {
+    async chargeStockFromFactory(itemId) {
+      const item = this.itemMap[itemId];
+      const isMochi = item && item.categoryId === 2;
+      const chargeAmount = isMochi ? 1000 : 200000;
+      const itemName = this.getItemName(itemId);
+      const unitText = isMochi ? 'ea' : 'g';
+
+      if (!confirm(`🏭 [공장 원재료 매입 요청]\n공장 제조 라인에 [ ${itemName} ${this.formatNumber(chargeAmount)}${unitText} ] 공급을 요청하시겠습니까?`)) {
         return;
       }
 
       try {
-        const params = new URLSearchParams();
-        params.append('itemId', itemId);
-        params.append('amount', chargeAmount);
+        // 🌟 URLSearchParams 대신 Axios params 옵션으로 전달
+        const response = await api.post('/api/inventory/hq/stock/charge', null, {
+          params: {
+            itemId: itemId,
+            amount: chargeAmount
+          }
+        });
 
-        const response = await axios.post('/inventory/hq/stock/charge', params);
         if (response.status === 200) {
           alert("🎉 " + response.data);
-          this.fetchHqStock(); // 충전 후 재고 목록 실시간 반영 및 갱신
+          this.fetchHqStock(); // 충전 후 재고 목록 실시간 갱신
         }
       } catch (error) {
-        alert("공장 수급 요청 처리 중 에러가 발생했습니다.");
+        const errorMsg = error.response?.data || "공장 수급 요청 처리 중 에러가 발생했습니다.";
+        alert(`❌ 충전 실패: ${errorMsg}`);
         console.error(error);
       }
     },
+
     getItemName(itemId) {
-      return this.itemMap[itemId] || `기타 원자재 (ID: ${itemId})`;
+      const item = this.itemMap[itemId];
+      return item ? item.itemName : `원자재 (ID: #${itemId})`;
     },
+
     getUnitType(itemId) {
-      return (itemId >= 13 && itemId <= 17) ? 'ea' : 'g';
+      const item = this.itemMap[itemId];
+      return (item && item.categoryId === 2) ? 'ea' : 'g';
     },
+
     formatNumber(val) {
       return String(val).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
@@ -250,7 +277,6 @@ export default {
 .hq-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; }
 .section-title-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 
-/* 탭 스타일 */
 .tab-menu { display: flex; gap: 8px; }
 .tab-btn { padding: 10px 20px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; border-radius: 8px 8px 0 0; cursor: pointer; color: #64748b; transition: all 0.2s; }
 .tab-btn.active { background: #6366f1; color: #fff; border-color: #6366f1; }

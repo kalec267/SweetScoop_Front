@@ -118,6 +118,15 @@
               <span class="menu-icon">🏢</span>
               본사 발주 승인
             </router-link>
+
+            <router-link
+              to="/branch/inventory"
+              class="menu-item"
+              active-class="active"
+            >
+              <span class="menu-icon">🏪</span>
+              지점 재고 & 대행 발주
+            </router-link>
           </div>
         </div>
 
@@ -287,7 +296,7 @@
 
           <div class="group-items">
             <router-link
-              to="/inventory"
+              to="/branch/inventory"
               class="menu-item"
               active-class="active"
             >
@@ -296,7 +305,7 @@
             </router-link>
 
             <router-link
-              to="/order-request"
+              to="/branch/order-request"
               class="menu-item"
               active-class="active"
             >
