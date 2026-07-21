@@ -20,6 +20,7 @@ import MenuManagement from "../views/MenuManagement.vue";
 import BranchManagement from "../views/admin/BranchManagement.vue";
 import CouponManagement from "../views/CouponManagement.vue";
 import Promotion from "../views/Promotion.vue";
+import KioskControlView from "../views/kioskControlView.vue"
 
 // ========================================== 본사 물품 관리 화면
 // ==========================================
@@ -194,6 +195,16 @@ const routes = [
             requiresAuth: true,
             role: "BRANCH"
         }
+    }, 
+
+    //분점 키오스크 활성화 화면 
+    {
+        path: '/branch/kiosk-control',
+        name: 'KioskControlView',
+        component: KioskControlView,
+        meta: {
+            requiresAuth: true
+        },
     },
 
     // ========================================== 본사 재고 주문 관리
