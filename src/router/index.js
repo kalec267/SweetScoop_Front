@@ -12,13 +12,13 @@ import Menu from "../views/Menu.vue";
 import Login from "../views/Login.vue";
 import Dashboard from "../views/Dashboard.vue";
 import BranchDashboard from "../views/BranchDashboard.vue";
-import OrderRequest from "../views/OrderRequest.vue";
-import Inventory from "../views/Inventory.vue";
+import BranchOrderHistory from "../views/inventory/BranchOrderHistory.vue";
 import Delivery from "../views/Delivery.vue";
 import Branch from "../views/Branch.vue";
 import MenuManagement from "../views/MenuManagement.vue";
 import BranchManagement from "../views/admin/BranchManagement.vue";
 import Promotion from '../views/Promotion.vue';
+import BranchInventoryView from "../views/inventory/BranchInventoryView.vue";
 
 // ========================================== 본사 물품 관리 화면
 // ==========================================
@@ -164,21 +164,20 @@ const routes = [
         }
     }, {
         path: "/branch/order-request",
-        name: "OrderRequest",
-        component: OrderRequest,
-        meta: {
+        name: "BranchOrderHistory",
+        component: BranchOrderHistory,
+        meta: { 
             requiresAuth: true,
-            role: "HQ" || "BRANCH"
+            role: "BRANCH" 
         }
     }, {
         path: "/branch/inventory",
-        name: "Inventory",
-        component: Inventory,
+        name: "BranchInventory",
+        component: BranchInventoryView,
         meta: {
-            requiresAuth: true,
-            role: "BRANCH"
+          requiresAuth: true
         }
-    },
+      },
 
     // ========================================== 본사 재고 주문 관리
     // ==========================================

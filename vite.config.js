@@ -30,6 +30,14 @@ export default defineConfig(({ mode }) => {
           secure: false,
         },
       },
+        "/api/inventory": {
+          target:
+            env.VITE_API_URL ||
+            "http://localhost:8888",
+
+          changeOrigin: true,
+          secure: false,
+        },
     },
   };
 });
