@@ -19,26 +19,27 @@ export default defineConfig(({ mode }) => {
     server: {
       host: env.VITE_HOST || "0.0.0.0",
       port: Number(env.VITE_PORT) || 5300,
+      strictPort: true,
 
       proxy: {
+        "/api/inventory": {
+          target:
+            env.VITE_INVENTORY_API_URL ||
+            "http://localhost:8888",
+
+          changeOrigin: true,
+          secure: false,
+        },
+
         "/api": {
           target:
             env.VITE_API_URL ||
-            "http://localhost:8888",
+            "http://localhost:8890",
 
           changeOrigin: true,
           secure: false,
         },
       },
-        "/api/inventory": {
-          target:
-            env.VITE_API_URL ||
-            "http://localhost:8888",
-
-          changeOrigin: true,
-          secure: false,
-        },
     },
   };
 });
-

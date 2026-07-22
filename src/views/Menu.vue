@@ -43,9 +43,7 @@
 
     const loading = ref(false);
 
-    /* 3. 커피 옵션 상태
- *
- */
+    //3. 커피 옵션 상태
 
     const coffeeOptions = ref([]);
 
