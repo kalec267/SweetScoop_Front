@@ -20,7 +20,6 @@
     <div class="table-section" v-if="currentTab === 'orders'">
       <div class="section-title-bar">
         <h3>지점별 발주 신청 목록</h3>
-        <button class="btn-refresh" @click="fetchHqOrders">🔄 새로고침</button>
       </div>
       <table class="hq-table">
         <thead>
@@ -79,7 +78,6 @@
     <div class="table-section" v-if="currentTab === 'stock'">
       <div class="section-title-bar">
         <h3>본사 중앙 물류창고 잔여 재고</h3>
-        <button class="btn-refresh" @click="fetchHqStock">🔄 새로고침</button>
       </div>
       <table class="hq-table">
         <thead>

@@ -17,10 +17,6 @@
           </option>
         </select>
       </div>
-
-      <button class="btn-refresh" @click="fetchInventoryData">
-        🔄 새로고침
-      </button>
     </div>
 
     <!-- 2. 상단 요약 요약 카드 2개 (재고 부족 경고 품목 / 정상 운영 품목) -->

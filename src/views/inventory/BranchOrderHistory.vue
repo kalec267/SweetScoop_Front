@@ -18,7 +18,7 @@
             {{ b.branchName }}
           </option>
         </select>
-        <button class="btn-refresh" @click="fetchMyOrders">🔄 새로고침</button>
+      
       </div>
   
       <!-- 발주 내역 테이블 -->
