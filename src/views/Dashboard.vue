@@ -198,21 +198,10 @@ const currentPage = ref(1);
 const itemsPerPage = 5;
 
 // 1. 상단 요약 카드 모의 상태 데이터
-const summary = ref({
-  totalRequests: 248,
-  pendingCount: 18,
-  shippingCount: 7,
-  activeBranches: 12
-});
+const summary = ref({});
 
 // 2. 이미지 시안 기준 초기 리스트 백업용 데이터셋 (Mock)
-const requests = ref([
-  { requestId: 2024, branchName: '강남점', requestMenu: '딸기 아이스크림 외 3종', quantity: 150, requestDate: '2026.07.12', status: '대기 중' },
-  { requestId: 2023, branchName: '홍대점', requestMenu: '초코 아이스크림 외 5종', quantity: 230, requestDate: '2026.07.11', status: '배송 중' },
-  { requestId: 2022, branchName: '신촌점', requestMenu: '바닐라 소프트콘 외 2종', quantity: 80, requestDate: '2026.07.10', status: '완료' },
-  { requestId: 2021, branchName: '수원점', requestMenu: '망고 샤베트 외 1종', quantity: 60, requestDate: '2026.07.09', status: '대기 중' },
-  { requestId: 2020, branchName: '부산점', requestMenu: '레몬 셔벗 외 4종', quantity: 120, requestDate: '2026.07.08', status: '반려' }
-]);
+const requests = ref([]);
 
 // 3. 백엔드 실시간 API 호출 연동 (JPA 구성 완료 시 실데이터 바인딩)
 const fetchDashboardData = async () => {
@@ -280,7 +269,7 @@ const setPage = (page) => {
 // 버튼 인터랙션 함수 세팅
 const trackDelivery = (id) => alert(`#REQ-${id} 운송 배송 추적 모달 실행`);
 const viewDetail = (id) => alert(`#REQ-${id} 상세 영수증/명세서 확인`);
-const goToOrderRequestPage = () => router.push('/order-request');
+const goToOrderRequestPage = () => router.push('branch/order-request');
 const openOrderModal = () => {
   isOrderModalOpen.value = true; // 클릭 시 조건 없이 즉시 모달 오픈!
 };
