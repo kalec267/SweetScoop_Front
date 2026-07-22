@@ -126,7 +126,8 @@
   
         <div class="form-group">
           <label>변경할 가격 (원)</label>
-          <input type="number" v-model="priceForm.price" placeholder="금액 입력" />
+          <!-- v-model을 v-model.number로 변경 -->
+          <input type="number" v-model.number="priceForm.price" placeholder="금액 입력" />
         </div>
   
         <div class="modal-actions">
@@ -209,10 +210,17 @@ const submitMenuForm = async () => {
 // 3. 가격 변경 처리 (PATCH)
 const submitPriceUpdate = async () => {
   try {
-    await updateSizePrice(priceForm.value.sizeId, { price: priceForm.value.price });
-    alert("선택 스펙의 가격이 성공적으로 변경되었습니다.");
+    // targetMenu.value.id (선택한 메뉴의 PK)를 첫 번째 인자로 전달
+    await updateSizePrice(targetMenu.value.id, { 
+      price: Number(priceForm.value.price) 
+    });
+    
+    alert("가격이 성공적으로 변경되었습니다.");
     closePriceModal();
+    fetchMenus(); // 변경 후 목록 새로고침
   } catch (err) {
+    console.error("에러 객체:", err);
+    console.error("에러 메시지:", err.message);
     alert("가격 변경 실패");
   }
 };
@@ -257,8 +265,12 @@ const openEditModal = (menu) => {
 const closeModal = () => isModalOpen.value = false;
   
 const openPriceModal = (menu) => {
+  console.log("선택된 메뉴 데이터:", menu); // 👈 F12 개발자 도구 콘솔에서 price 필드가 들어있는지 확인!
   targetMenu.value = menu;
-  priceForm.value = { sizeId: 1, price: 0 };
+  priceForm.value = { 
+    sizeId: 1, 
+    price: menu.price ?? 0 
+  };
   isPriceModalOpen.value = true;
 };
   

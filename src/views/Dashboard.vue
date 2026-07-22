@@ -71,10 +71,10 @@
           <div class="filter-wrapper">
             <select v-model="statusFilter" @change="currentPage = 1" class="select-filter">
               <option value="ALL">전체 상태</option>
-              <option value="대기 중">처리 대기</option>
-              <option value="배송 중">배송 중</option>
-              <option value="완료">완료</option>
-              <option value="반려">반려</option>
+              <option value="PENDING">처리 대기</option>
+              <option value="SHIPPING">배송 중</option>
+              <option value="COMPLETED">완료</option>
+              <option value="REJECTED">반려</option>
             </select>
           </div>
           <div class="search-box">
@@ -121,14 +121,16 @@
                 </span>
               </td>
               <td>
-                <!-- 상태 조건별 동적 버튼 렌더링 -->
-                <div v-if="req.status === '대기 중'" class="action-buttons">
+                <!-- '대기 중' / 'PENDING' / '대기중' 모두 승인/반려 버튼 노출 -->
+                <div v-if="['대기 중', '대기중', 'PENDING'].includes(req.status)" class="action-buttons">
                   <button class="btn-approve" @click="updateStatus(req.requestId, '승인완료')">승인</button>
                   <button class="btn-reject" @click="updateStatus(req.requestId, '반려')">반려</button>
                 </div>
-                <div v-else-if="req.status === '배송 중'">
+                
+                <div v-else-if="['배송 중', '배송중', 'SHIPPING'].includes(req.status)">
                   <button class="btn-track" @click="trackDelivery(req.requestId)">📍 배송 추적</button>
                 </div>
+                
                 <div v-else>
                   <button class="btn-detail" @click="viewDetail(req.requestId)">상세 보기</button>
                 </div>
@@ -241,8 +243,24 @@ const filteredRequests = computed(() => {
     const menu = req.requestMenu ? req.requestMenu.toLowerCase() : '';
     const query = searchQuery.value.toLowerCase();
 
+    // 1. 검색어 조건 (분점명 또는 메뉴)
     const matchesSearch = branch.includes(query) || menu.includes(query);
-    const matchesStatus = statusFilter.value === 'ALL' || req.status === statusFilter.value;
+
+    // 2. 상태 필터 조건 (영어/한글 데이터 형태 매핑 대응)
+    let matchesStatus = false;
+    const status = req.status ? req.status.trim().toUpperCase() : '';
+
+    if (statusFilter.value === 'ALL') {
+      matchesStatus = true;
+    } else if (statusFilter.value === 'PENDING') {
+      matchesStatus = status === 'PENDING' || status === '대기중' || status === '대기 중';
+    } else if (statusFilter.value === 'SHIPPING') {
+      matchesStatus = status === 'SHIPPING' || status === '배송중' || status === '배송 중';
+    } else if (statusFilter.value === 'COMPLETED') {
+      matchesStatus = status === 'COMPLETED' || status === '완료' || status === '승인완료';
+    } else if (statusFilter.value === 'REJECTED') {
+      matchesStatus = status === 'REJECTED' || status === '반려';
+    }
 
     return matchesSearch && matchesStatus;
   });
@@ -277,20 +295,20 @@ const openOrderModal = () => {
 // 시안 배지 맵핑 필터 클래스 유틸리티
 const getStatusBadgeClass = (status) => {
   switch (status) {
-    case '대기 중': return 'badge-waiting';
-    case '배송 중': return 'badge-shipping';
-    case '완료': case '승인완료': return 'badge-success';
-    case '반려': return 'badge-rejected';
+    case '대기 중': case '대기중': case 'PENDING': return 'badge-waiting';
+    case '배송 중': case '배송중': case 'SHIPPING': return 'badge-shipping';
+    case '완료': case '승인완료': case 'COMPLETED': return 'badge-success';
+    case '반려': case 'REJECTED': return 'badge-rejected';
     default: return '';
   }
 };
 
 const getDotClass = (status) => {
   switch (status) {
-    case '대기 중': return 'dot-orange';
-    case '배송 중': return 'dot-blue';
-    case '완료': case '승인완료': return 'dot-green';
-    case '반려': return 'dot-red';
+    case '대기 중': case '대기중': case 'PENDING': return 'dot-orange';
+    case '배송 중': case '배송중': case 'SHIPPING': return 'dot-blue';
+    case '완료': case '승인완료': case 'COMPLETED': return 'dot-green';
+    case '반려': case 'REJECTED': return 'dot-red';
     default: return 'dot-gray';
   }
 };
