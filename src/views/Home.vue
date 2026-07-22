@@ -130,7 +130,7 @@ button {
 
 .banner-frame {
     width: 100%;
-    height: 55vh;
+    height: 70vh;
     max-height: 550px;
     padding: 0;
     overflow: hidden;

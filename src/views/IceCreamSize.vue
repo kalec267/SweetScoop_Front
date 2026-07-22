@@ -25,6 +25,8 @@
         }
     ];
 
+    const cupSelectableSizeIds = [1, 2, 3, 4, 5];
+
     /*
  * 카테고리별 사이즈 조회
  */
@@ -67,8 +69,6 @@
         // 아이스크림만 SIZE 테이블 조회
         await loadSize(categoryId);
     };
-
-    const cupSelectableSizeIds = [1, 2, 3, 4, 5];
 
     /*
  * 사이즈 선택
@@ -192,11 +192,7 @@
                     </p>
 
                     <strong class="price">
-                        ₩{{
-                            Number(
-                                size.price
-                            ).toLocaleString()
-                        }}
+                        ₩{{ Number(size.price).toLocaleString() }}
                     </strong>
                 </button>
             </div>
@@ -433,5 +429,4 @@
         line-height: 1.5;
         text-align: center;
     }
-
 </style>

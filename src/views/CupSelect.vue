@@ -19,7 +19,6 @@
             const response = await api.get("/api/cup");
             cups.value = Array.isArray(response.data) ? response.data : [];
 
-            // 기본 컵 자동 선택: 추가금액이 0원인 첫 번째 컵 우선
             selectedCup.value = cups.value.find(cup => Number(cup.additionalPrice) === 0) || cups.value[0] || null;
         } catch (error) {
             console.error("컵 목록 조회 실패", error);
