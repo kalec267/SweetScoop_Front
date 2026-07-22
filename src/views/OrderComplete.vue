@@ -520,4 +520,5 @@ h1 { font-size: 24px; margin-bottom: 10px; color: #1a1a1a; }
 .item-main-name { font-weight: 600; color: #2d3748; font-size: 14px; }
 .item-price { font-weight: 600; color: #2d3748; font-size: 14px; }
 .item-options-text { font-size: 12px; color: #718096; margin-top: 3px; padding-left: 4px; }
+.home-button {border-radius: 22px; color: #D90072; background-color: #FFE3f1; font-size: 13px; border-style: none; font-weight: 800; padding: 9px 15px;}
 </style>

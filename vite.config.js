@@ -22,14 +22,6 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
 
       proxy: {
-        "/api/inventory": {
-          target:
-            env.VITE_INVENTORY_API_URL ||
-            "http://localhost:8888",
-
-          changeOrigin: true,
-          secure: false,
-        },
 
         "/api": {
           target:
@@ -39,6 +31,17 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        
+        "/api/inventory": {
+          target:
+            env.VITE_INVENTORY_API_URL ||
+            "http://localhost:8888",
+
+          changeOrigin: true,
+          secure: false,
+        },
+
+        
       },
     },
   };
