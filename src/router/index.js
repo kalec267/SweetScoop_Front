@@ -185,7 +185,7 @@ const routes = [
         component: BranchOrderHistory,
         meta: {
             requiresAuth: true,
-            role: "BRANCH"
+            roles: ["HQ","BRANCH"]
         }
     }, {
         path: "/branch/inventory",
@@ -244,14 +244,15 @@ const routes = [
     // ==========================================
     {
         path: "/:pathMatch(.*)*",
-        name: "NotFound",
-        beforeEnter: () => {
-            window.alert("존재하지 않는 주소입니다.");
-
-            return {name: "Home"};
-        },
+        // 💡 화면이 완전히 깨지거나 멈추지 않도록 빈 컴포넌트 처리를 해줍니다.
         component: {
             template: "<div></div>"
+        },
+
+        // 💡 이 주소에 진입하기 직전에 콘솔 로그를 트리거합니다.
+        beforeEnter: (to, from, next) => {
+            alert("존재하지 않는 주소입니다.");
+            next("");
         }
     }
 ];
