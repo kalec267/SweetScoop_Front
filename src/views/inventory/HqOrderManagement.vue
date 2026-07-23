@@ -34,23 +34,29 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="order in paginatedOrders" :key="order.hqInventoryId" :class="{ 'row-completed': order.approvalStatus === 'COMPLETED' }">
-            <td class="order-id">#{{ order.hqInventoryId }}</td>
-            <td class="branch-name">{{ order.branchName }}</td>
-            <td class="item-name">{{ order.itemName }} <span class="item-id">(#{{ order.itemId }})</span></td>
-            <td class="quantity text-right">{{ formatNumber(order.requestQuantity) }} g/ea</td>
+          <tr v-for="order in paginatedOrders" :key="order.id || order.hqInventoryId" :class="{ 'row-completed': isApproved(order) }">
+            <td class="order-id">#{{ order.id || order.hqInventoryId }}</td>
+            <td class="branch-name">{{ order.branch?.branchName || order.branchName || '스윗스쿱 지점' }}</td>
+            <td class="item-name">{{ order.item?.itemName || order.itemName }} <span class="item-id">(식별번호: #{{ order.item?.id || order.itemId }})</span></td>
+            <td class="quantity text-right">{{ formatNumber(order.requestQuantity || order.quantity) }} 박스/튜브</td>
+            
+            <!-- 승인 상태 배지 -->
             <td>
-              <span :class="['badge', order.approvalStatus === 'COMPLETED' ? 'bg-success' : 'bg-warning']">
-                {{ order.approvalStatus === 'COMPLETED' ? '승인 완료' : '결제 대기' }}
+              <span :class="['badge', isApproved(order) ? 'bg-success' : 'bg-warning']">
+                {{ isApproved(order) ? '승인 완료' : '승인 대기' }}
               </span>
             </td>
+
+            <!-- 배송 상태 배지 -->
             <td>
-              <span :class="['badge', order.deliveryStatus === 'ARRIVED' ? 'bg-delivery-done' : 'bg-delivery-ready']">
-                {{ order.deliveryStatus === 'ARRIVED' ? '배송 완료' : '출고 준비중' }}
+              <span :class="['badge', getDeliveryBadgeClass(order.deliveryStatus)]">
+                {{ order.deliveryStatus || '미배송' }}
               </span>
             </td>
+
+            <!-- 발주 승인 버튼 -->
             <td class="text-center">
-              <button v-if="order.approvalStatus !== 'COMPLETED'" class="btn-approve" @click="approveOrder(order.hqInventoryId)">
+              <button v-if="!isApproved(order)" class="btn-approve" @click="approveOrder(order.id || order.hqInventoryId)">
                 ✔ 발주 승인
               </button>
               <span v-else class="text-done">처리 완료</span>
@@ -82,7 +88,7 @@
       <table class="hq-table">
         <thead>
           <tr>
-            <th>물품 ID</th>
+            <th>물품 식별번호</th>
             <th>물품 정보</th>
             <th class="text-right">본사 보유 중량/수량</th>
             <th>창고 상태</th>
@@ -92,9 +98,7 @@
         <tbody>
           <tr v-for="stock in hqStockList" :key="stock.id">
             <td class="order-id">#{{ stock.itemId }}</td>
-            <td class="item-name">
-              {{ getItemName(stock.itemId) }}
-            </td>
+            <td class="item-name">{{ getItemName(stock.itemId) }}</td>
             <td class="quantity text-right text-bold">
               {{ formatNumber(stock.stockLevel) }} {{ getUnitType(stock.itemId) }}
             </td>
@@ -127,8 +131,8 @@ export default {
       currentTab: 'orders', 
       orderList: [],
       hqStockList: [],      
-      itemList: [],         // DB에서 읽어온 전체 자재 목록
-      itemMap: {},          // ID별 Item 객체 매핑용
+      itemList: [],
+      itemMap: {},
       currentPage: 1,
       itemsPerPage: 10
     };
@@ -148,20 +152,28 @@ export default {
     this.fetchHqOrders();
   },
   methods: {
+    // 💡 승인 여부 판별 (한글/영문 모두 대응)
+    isApproved(order) {
+      const status = order.approvalStatus || order.status;
+      return status === '승인완료' || status === 'COMPLETED';
+    },
+
+    // 💡 배송 상태별 배지 색상
+    getDeliveryBadgeClass(status) {
+      if (status === '배송완료' || status === 'ARRIVED') return 'bg-delivery-done';
+      if (status === '배송중') return 'bg-delivery-shipping';
+      if (status === '준비중') return 'bg-delivery-ready';
+      return 'bg-warning';
+    },
+
     async fetchItems() {
       try {
         const response = await api.get('/api/inventory/items');
-        
         if (Array.isArray(response.data)) {
           this.itemList = response.data;
           const map = {};
-          this.itemList.forEach(item => {
-            map[item.id] = item;
-          });
+          this.itemList.forEach(item => { map[item.id] = item; });
           this.itemMap = map;
-        } else {
-          console.warn("원자재 목록이 배열 형태가 아닙니다:", response.data);
-          this.itemList = [];
         }
       } catch (error) {
         console.error("원자재 목록 로드 실패:", error);
@@ -175,16 +187,15 @@ export default {
 
     async fetchHqOrders() {
       try {
-        const response = await api.get('/api/inventory/hq/orders');
+        const response = await api.get('/api/admin/branches/orders');
         
         if (Array.isArray(response.data)) {
           this.orderList = response.data.sort((a, b) => {
-            if (a.approvalStatus === 'PENDING' && b.approvalStatus !== 'PENDING') return -1;
-            if (a.approvalStatus !== 'PENDING' && b.approvalStatus === 'PENDING') return 1;
-            return b.hqInventoryId - a.hqInventoryId;
+            const idA = a.id || a.hqInventoryId;
+            const idB = b.id || b.hqInventoryId;
+            return idB - idA;
           });
         } else {
-          console.warn("발주 목록 데이터가 배열이 아닙니다:", response.data);
           this.orderList = [];
         }
         this.currentPage = 1;
@@ -202,21 +213,18 @@ export default {
       }
     },
 
+    // 💡 발주 승인 처리
     async approveOrder(hqInventoryId) {
-      if (!confirm("해당 발주 건을 승인하시겠습니까?\n승인 시 본사 창고 재고 차감 및 지점 재고 가산이 실시간 처리됩니다.")) return;
+      if (!confirm("해당 발주 건을 승인하시겠습니까?\n승인 완료 시 배송 관리 목록에 [준비중] 상태로 등록됩니다.")) return;
 
       try {
-        // 🌟 URLSearchParams 대신 params 옵션으로 전달
-        const response = await api.post('/api/inventory/in/hq', null, {
-          params: { hqInventoryId }
-        });
+        const response = await api.post(`/api/admin/branches/orders/${hqInventoryId}/approve`);
 
         if (response.status === 200) {
-          alert("승인 처리가 완료되었습니다!");
-          this.fetchHqOrders(); 
+          alert("✔ 발주가 정상적으로 승인되었습니다!");
+          this.fetchHqOrders(); // 목록 새로고침
         }
       } catch (error) {
-        // 백엔드 예외 메시지 출력
         const errorMsg = error.response?.data || "발주 승인 처리 중 에러가 발생했습니다.";
         alert(`❌ 승인 실패: ${errorMsg}`);
       }
@@ -227,43 +235,39 @@ export default {
       const isMochi = item && item.categoryId === 2;
       const chargeAmount = isMochi ? 1000 : 200000;
       const itemName = this.getItemName(itemId);
-      const unitText = isMochi ? 'ea' : 'g';
+      const unitText = isMochi ? '개' : 'g (그램)';
 
       if (!confirm(`🏭 [공장 원재료 매입 요청]\n공장 제조 라인에 [ ${itemName} ${this.formatNumber(chargeAmount)}${unitText} ] 공급을 요청하시겠습니까?`)) {
         return;
       }
 
       try {
-        // 🌟 URLSearchParams 대신 Axios params 옵션으로 전달
         const response = await api.post('/api/inventory/hq/stock/charge', null, {
-          params: {
-            itemId: itemId,
-            amount: chargeAmount
-          }
+          params: { itemId: itemId, amount: chargeAmount }
         });
 
         if (response.status === 200) {
           alert("🎉 " + response.data);
-          this.fetchHqStock(); // 충전 후 재고 목록 실시간 갱신
+          this.fetchHqStock();
         }
       } catch (error) {
         const errorMsg = error.response?.data || "공장 수급 요청 처리 중 에러가 발생했습니다.";
         alert(`❌ 충전 실패: ${errorMsg}`);
-        console.error(error);
       }
     },
 
     getItemName(itemId) {
       const item = this.itemMap[itemId];
-      return item ? item.itemName : `원자재 (ID: #${itemId})`;
+      return item ? item.itemName : `원자재 (식별번호: #${itemId})`;
     },
 
     getUnitType(itemId) {
       const item = this.itemMap[itemId];
-      return (item && item.categoryId === 2) ? 'ea' : 'g';
+      return (item && item.categoryId === 2) ? '개' : 'g (그램)';
     },
 
     formatNumber(val) {
+      if (!val) return '0';
       return String(val).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
   }
@@ -278,9 +282,6 @@ export default {
 .tab-menu { display: flex; gap: 8px; }
 .tab-btn { padding: 10px 20px; border: 1px solid #cbd5e1; background: #fff; font-weight: 600; border-radius: 8px 8px 0 0; cursor: pointer; color: #64748b; transition: all 0.2s; }
 .tab-btn.active { background: #6366f1; color: #fff; border-color: #6366f1; }
-
-.btn-refresh { padding: 6px 12px; border: 1px solid #cbd5e1; background: white; border-radius: 6px; cursor: pointer; font-size: 13px; }
-.btn-refresh:hover { background: #f1f5f9; }
 
 .table-section { background: #fff; padding: 24px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; border-top: none; }
 .hq-table { width: 100%; border-collapse: collapse; }
@@ -301,13 +302,14 @@ export default {
 .bg-warning { background-color: #fef3c7; color: #92400e; }
 .bg-success { background-color: #d1fae5; color: #065f46; }
 .bg-danger { background-color: #fee2e2; color: #991b1b; }
-.bg-delivery-done { background-color: #e2e8f0; color: #475569; }
-.bg-delivery-ready { background-color: #e0f2fe; color: #0369a1; }
+.bg-delivery-done { background-color: #ecfdf5; color: #16a34a; }
+.bg-delivery-shipping { background-color: #eff6ff; color: #2563eb; }
+.bg-delivery-ready { background-color: #fff7ed; color: #ea580c; }
 
-.row-completed { background-color: #fafafa; opacity: 0.75; }
+.row-completed { background-color: #fafafa; opacity: 0.85; }
 .btn-approve { background-color: #10b981; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
 .btn-approve:hover { background-color: #059669; }
-.text-done { color: #94a3b8; font-size: 13px; }
+.text-done { color: #10b981; font-weight: 700; font-size: 13px; }
 .table-empty { text-align: center !important; color: #94a3b8; padding: 40px 0; }
 
 .btn-factory-charge { background-color: #3b82f6; color: white; border: none; padding: 6px 14px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }

@@ -1,913 +1,2079 @@
+```vue
 <template>
-    <div class="branch-dashboard">
-        <!-- 헤더 영역 -->
-        <div class="dashboard-header">
-            <div>
-                <h2>분점 관리 파트너 (스윗스쿱 강남역점)</h2>
-                <p class="subtitle">실시간 지점 원자재 재고 관리 및 본사 신청 현황</p>
-            </div>
+  <div class="branch-dashboard">
+    <div class="dashboard-header">
+      <div>
+        <h2>분점 관리 파트너 (스윗스쿱 강남역점)</h2>
+        <p class="subtitle">
+          실시간 지점 원자재 재고 관리 및 본사 신청 현황
+        </p>
+      </div>
 
-            <!-- 우측 액션 영역 -->
-            <div style="display: flex; align-items: center; gap: 16px;">
-                <!-- 초기화 테스트 버튼 -->
-                <button class="btn-test" @click="testResetOrders">🧪 초기화 테스트</button>
-                <button class="btn-order" @click="openOrderModal">＋ 본사 재고 신청 (발주)</button>
-            </div>
-        </div>
+      <div class="header-actions">
+        <button
+          class="btn-test"
+          @click="testResetOrders"
+        >
+          🧪 초기화 테스트
+        </button>
 
-        <!-- 메인 레이아웃 그리드 (좌: 지점 보유 재고 / 우: 실시간 주문 & 본사 신청 목록) -->
-        <div class="dashboard-grid">
-
-            <!-- [왼쪽] 실시간 원자재 보유 현황 -->
-            <div class="grid-section">
-                <div class="section-title-box">
-                    <h3>🍦 매장 원자재 재고 보유량</h3>
-                    <span class="badge-tag">실시간</span>
-                </div>
-
-                <div class="inventory-cards">
-                    <div v-for="item in branchInventory" :key="item.itemId" class="inv-card">
-                        <div class="inv-info">
-                            <span class="inv-name">{{ item.itemName }}</span>
-                            <span class="inv-weight">{{ item.stockLevel.toLocaleString() }}g 남음</span>
-                        </div>
-                        <div class="progress-bar-bg">
-                            <div
-                                class="progress-bar-fill"
-                                :style="{ width: getPercentage(item.stockLevel) + '%' }"
-                                :class="getProgressBarClass(item.stockLevel)"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- [오른쪽 상단] 실시간 키오스크 주문 접수 현황 (Firebase 연동) -->
-            <div class="grid-section" style="margin-bottom: 30px;">
-                <div class="section-title-box">
-                    <h3>🔔 실시간 키오스크 주문 접수</h3>
-                    <span class="badge-tag" style="background: #ecfdf5; color: #059669;">LIVE</span>
-                </div>
-
-                <div class="order-list">
-                    <div
-                        v-if="realtimeOrders.length === 0"
-                        style="text-align: center; color: #94a3b8; padding: 20px 0; font-size: 13px;">
-                        들어온 실시간 주문이 없습니다. 대기 중...
-                    </div>
-
-                    <div
-                        v-for="order in realtimeOrders"
-                        :key="order.orderId"
-                        class="order-item live-order-card"
-                        @click="toggleOrderDetail(order.orderId)"
-                        style="cursor: pointer;">
-                        <div class="order-meta">
-                            <span class="order-id">주문번호: #{{ order.orderNo }}
-                                (웨이팅:
-                                <strong>{{ order.waitingNo }}</strong>번)</span>
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <button class="btn-receipt" @click.stop="openReceiptModal(order)">영수증</button>
-                                <button class="btn-complete" @click.stop="completeOrder(order.orderId)">제조완료</button>
-                                <button class="btn-cancel-order" @click.stop="cancelOrder(order.orderId)">주문취소</button>
-                                <span class="order-status status-waiting">{{ order.status }}</span>
-                                <span style="font-size: 11px; color: #64748b;">{{ order.expanded ? '▲' : '▼' }}</span>
-                            </div>
-                        </div>
-
-                        <div
-                            class="order-body"
-                            style="flex-direction: column; align-items: flex-start; gap: 4px;">
-                            <div
-                                style="display: flex; justify-content: space-between; width: 100%; font-size: 13px; color: #334155; font-weight: 600;">
-                                <span>총 결제금액</span>
-                                <span style="color: #d13b7d;">{{ Number(order.totalPrice).toLocaleString() }}원</span>
-                            </div>
-
-                            <div v-if="order.expanded" class="order-detail-box" @click.stop>
-                                <div class="detail-divider"></div>
-                                <p class="detail-title">📦 세부 주문 사항</p>
-
-                                <div v-for="(item, idx) in order.items" :key="idx" class="detail-item-row">
-                                    <div style="font-weight: 600; color: #1e293b;">
-                                        <span v-if="item.sizeName" style="color: #d13b7d; margin-right: 4px;">[{{ item.sizeName }}]</span>
-                                        {{ getItemDisplayName(item) }}
-                                    </div>
-
-                                    <div v-if="formatItemFlavors(item)" class="option-tag">
-                                        맛: {{ formatItemFlavors(item) }}
-                                    </div>
-
-                                    <div v-if="formatOptions(item)" class="option-tag">
-                                        옵션: {{ formatOptions(item) }}
-                                    </div>
-
-                                    <div
-                                        style="color: #64748b; font-size: 12px; margin-top: 6px; display: flex; justify-content: space-between;">
-                                        <span>수량: {{ item.quantity }}개</span>
-                                        <span>금액: {{ Number(item.totalPrice || item.price || 0).toLocaleString() }}원</span>
-                                    </div>
-                                </div>
-
-                                <div
-                                    style="margin-top: 8px; font-size: 12px; color: #64748b; border-top: 1px dashed #e2e8f0; padding-top: 6px;">
-                                    결제수단: {{ order.paymentMethod || '카드결제' }}
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- [오른쪽 하단] 최근 본사 재고 신청 내역 -->
-            <div class="grid-section">
-                <div class="section-title-box">
-                    <h3>📄 본사 신청 및 배송 현황</h3>
-                </div>
-
-                <div class="order-list">
-                    <div v-for="order in myRequests" :key="order.id" class="order-item">
-                        <div class="order-meta">
-                            <span class="order-id">#REQ-{{ order.id }}</span>
-                            <span class="order-date">{{ order.requestDate }}</span>
-                        </div>
-                        <div class="order-body">
-                            <span class="order-menu">{{ order.menuName }}
-                                ({{ order.quantity }}개)</span>
-                            <span class="order-status" :class="getStatusClass(order.status)">
-                                {{ order.status }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- 신규 발주 모달 창 -->
-        <div v-if="isOrderModalOpen" class="modal-overlay">
-            <div class="modal-content">
-                <h3>본사 재고 신청</h3>
-                <p class="modal-desc">필요한 벌크 원자재 물품과 신청 수량을 입력하세요.</p>
-
-                <div class="form-group">
-                    <label>신청 물품 선택</label>
-                    <select v-model="orderForm.itemId">
-                        <option v-for="item in branchInventory" :key="item.itemId" :value="item.itemId">
-                            {{ item.itemName }}
-                        </option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>신청 수량 (개/Box)</label>
-                    <input type="number" v-model="orderForm.quantity" min="1" placeholder="수량 입력"/>
-                </div>
-
-                <div class="modal-actions">
-                    <button class="btn-cancel" @click="closeOrderModal">취소</button>
-                    <button class="btn-submit" @click="submitOrder">신청 완료</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 영수증 출력용 모달 창 -->
-        <div v-if="isReceiptModalOpen" class="modal-overlay" @click="closeReceiptModal">
-            <div class="receipt-modal-content" @click.stop>
-                <div class="receipt-header">
-                    <h4>🍦 스윗스쿱 강남역점</h4>
-                    <p>주문 영수증 (관리자 확인용)</p>
-                </div>
-
-                <div class="receipt-info-box">
-                    <div>주문번호: #{{ selectedReceipt?.orderNo }}</div>
-                    <div>웨이팅 번호:
-                        <strong>{{ selectedReceipt?.waitingNo }}번</strong>
-                    </div>
-                    <div>주문 상태: {{ selectedReceipt?.status }}</div>
-                </div>
-
-                <div class="receipt-divider-line"></div>
-
-                <div class="receipt-items-list">
-                    <div
-                        v-for="(item, idx) in selectedReceipt?.items"
-                        :key="idx"
-                        class="receipt-item-row">
-                        <div class="receipt-item-name">
-                            <span>
-                                <span v-if="item.sizeName" class="receipt-size">[{{ item.sizeName }}]</span>
-                                {{ getItemDisplayName(item) }}
-                            </span>
-                            <span>{{ item.quantity }}개</span>
-                        </div>
-
-                        <div v-if="formatItemFlavors(item)" class="receipt-sub-tag">
-                            맛: {{ formatItemFlavors(item) }}
-                        </div>
-
-                        <div v-if="formatOptions(item)" class="receipt-sub-tag">
-                            옵션: {{ formatOptions(item) }}
-                        </div>
-
-                        <div class="receipt-item-price">
-                            {{ Number(item.totalPrice || item.price || 0).toLocaleString() }}원
-                        </div>
-                    </div>
-                </div>
-
-                <div class="receipt-divider-line"></div>
-
-                <div class="receipt-total-box">
-                    <span>총 결제금액</span>
-                    <span class="total-price-text">{{ Number(selectedReceipt?.totalPrice || 0).toLocaleString() }}원</span>
-                </div>
-
-                <div class="receipt-footer-text">
-                    결제수단: {{ selectedReceipt?.paymentMethod || '카드결제' }}<br/>
-                    감사합니다. 언제나 신선함을 전하겠습니다.
-                </div>
-
-                <div class="modal-actions" style="margin-top: 16px;">
-                    <button class="btn-cancel" style="width: 100%;" @click="closeReceiptModal">닫기</button>
-                </div>
-            </div>
-        </div>
+        <button
+          class="btn-order"
+          @click="openOrderModal"
+        >
+          ＋ 본사 재고 신청 (발주)
+        </button>
+      </div>
     </div>
+
+    <div class="dashboard-grid">
+      <!-- 키오스크 제어 -->
+      <div class="grid-section">
+        <div class="section-title-box">
+          <h3>🖥️ 매장 키오스크 가동 현황</h3>
+          <span class="badge-tag blue">기기 제어</span>
+        </div>
+
+        <div class="kiosk-control-container">
+          <div
+            v-if="isKioskLoading"
+            class="empty-state"
+          >
+            키오스크 정보를 불러오는 중...
+          </div>
+
+          <div
+            v-else-if="kioskList.length === 0"
+            class="empty-state"
+          >
+            등록된 키오스크 기기가 없습니다.
+          </div>
+
+          <div
+            v-else
+            class="kiosk-grid"
+          >
+            <div
+              v-for="kiosk in kioskList"
+              :key="kiosk.id"
+              class="kiosk-card"
+              :class="{
+                'is-active': isKioskActive(kiosk.status)
+              }"
+            >
+              <div class="kiosk-card-header">
+                <span class="kiosk-title">
+                  {{
+                    kiosk.kioskName ||
+                    `키오스크 #${kiosk.id}`
+                  }}
+                </span>
+
+                <span
+                  :class="getStatusBadgeClass(kiosk.status)"
+                >
+                  {{ getStatusText(kiosk.status) }}
+                </span>
+              </div>
+
+              <div class="kiosk-card-body">
+                <p class="kiosk-id-info">
+                  기기 식별번호:
+                  <strong>#{{ kiosk.id }}</strong>
+                </p>
+              </div>
+
+              <div class="kiosk-card-footer">
+                <span class="switch-text">
+                  {{
+                    isKioskActive(kiosk.status)
+                      ? "운영 중 (ON)"
+                      : "운영 중지 (OFF)"
+                  }}
+                </span>
+
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    :checked="isKioskActive(kiosk.status)"
+                    :disabled="kiosk.isUpdating"
+                    @change="toggleKioskStatus(kiosk)"
+                  />
+
+                  <span class="slider round"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 실시간 주문 -->
+      <div class="grid-section">
+        <div class="section-title-box">
+          <h3>🔔 실시간 키오스크 주문 접수</h3>
+          <span class="badge-tag green">LIVE</span>
+        </div>
+
+        <div class="order-list">
+          <div
+            v-if="realtimeOrders.length === 0"
+            class="empty-state"
+          >
+            들어온 실시간 주문이 없습니다. 대기 중...
+          </div>
+
+          <div
+            v-for="order in realtimeOrders"
+            :key="order.docId || order.orderId"
+            class="order-item live-order-card"
+            @click="toggleOrderDetail(order.orderId)"
+          >
+            <div class="order-meta">
+              <span class="order-id">
+                주문번호: #{{ order.orderNo }}
+                (웨이팅:
+                <strong>{{ order.waitingNo }}</strong>번)
+              </span>
+
+              <div class="order-actions">
+                <button
+                  class="btn-receipt"
+                  @click.stop="openReceiptModal(order)"
+                >
+                  영수증
+                </button>
+
+                <button
+                  class="btn-complete"
+                  @click.stop="completeOrder(order.orderId)"
+                >
+                  제조완료
+                </button>
+
+                <button
+                  class="btn-cancel-order"
+                  @click.stop="cancelOrder(order.orderId)"
+                >
+                  주문취소
+                </button>
+
+                <span class="order-status status-waiting">
+                  {{ order.status }}
+                </span>
+
+                <span class="expand-icon">
+                  {{ order.expanded ? "▲" : "▼" }}
+                </span>
+              </div>
+            </div>
+
+            <div class="order-body order-body-column">
+              <div class="order-total-row">
+                <span>총 결제금액</span>
+
+                <span class="order-total-price">
+                  {{
+                    Number(
+                      order.totalPrice || 0
+                    ).toLocaleString()
+                  }}원
+                </span>
+              </div>
+
+              <div
+                v-if="order.expanded"
+                class="order-detail-box"
+                @click.stop
+              >
+                <div class="detail-divider"></div>
+
+                <p class="detail-title">
+                  📦 세부 주문 사항
+                </p>
+
+                <div
+                  v-for="(item, idx) in order.items || []"
+                  :key="idx"
+                  class="detail-item-row"
+                >
+                  <div class="detail-item-name">
+                    <span
+                      v-if="item.sizeName"
+                      class="detail-size-name"
+                    >
+                      [{{ item.sizeName }}]
+                    </span>
+
+                    {{ getItemDisplayName(item) }}
+                  </div>
+
+                  <div
+                    v-if="formatItemFlavors(item)"
+                    class="option-tag"
+                  >
+                    맛: {{ formatItemFlavors(item) }}
+                  </div>
+
+                  <div
+                    v-if="formatOptions(item)"
+                    class="option-tag"
+                  >
+                    옵션: {{ formatOptions(item) }}
+                  </div>
+
+                  <div class="detail-item-bottom">
+                    <span>
+                      수량: {{ item.quantity || 0 }}개
+                    </span>
+
+                    <span>
+                      금액:
+                      {{
+                        Number(
+                          item.totalPrice ||
+                          item.price ||
+                          0
+                        ).toLocaleString()
+                      }}원
+                    </span>
+                  </div>
+                </div>
+
+                <div class="payment-method">
+                  결제수단:
+                  {{ order.paymentMethod || "카드결제" }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 지점 재고 -->
+      <div class="grid-section">
+        <div class="section-title-box">
+          <h3>🍦 매장 원자재 재고 보유량</h3>
+          <span class="badge-tag pink">실시간</span>
+        </div>
+
+        <div class="inventory-cards">
+          <div
+            v-if="branchInventory.length === 0"
+            class="empty-state"
+          >
+            원자재 재고 정보가 없습니다.
+          </div>
+
+          <div
+            v-for="item in branchInventory"
+            :key="item.itemId"
+            class="inv-card"
+          >
+            <div class="inv-info">
+              <span class="inv-name">
+                {{ item.itemName }}
+              </span>
+
+              <span class="inv-weight">
+                {{
+                  Number(
+                    item.stockLevel || 0
+                  ).toLocaleString()
+                }}g 남음
+              </span>
+            </div>
+
+            <div class="progress-bar-bg">
+              <div
+                class="progress-bar-fill"
+                :style="{
+                  width:
+                    getPercentage(item.stockLevel) + '%'
+                }"
+                :class="
+                  getProgressBarClass(item.stockLevel)
+                "
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 발주 내역 -->
+      <div class="grid-section">
+        <div class="section-title-box">
+          <h3>📄 발주 신청 및 배송 현황</h3>
+          <span class="badge-tag gray">발주 내역</span>
+        </div>
+
+        <div class="order-list">
+          <div
+            v-if="myRequests.length === 0"
+            class="empty-state"
+          >
+            신청 내역이 없습니다.
+          </div>
+
+          <div
+            v-for="order in myRequests"
+            :key="order.id"
+            class="order-item"
+          >
+            <div class="order-meta">
+              <span class="order-id">
+                #REQ-{{ order.id }}
+              </span>
+
+              <span class="order-date">
+                {{ order.requestDate }}
+              </span>
+            </div>
+
+            <div class="order-body">
+              <span class="order-menu">
+                {{ order.menuName }}
+                ({{ order.quantity }}개)
+              </span>
+
+              <span
+                class="order-status"
+                :class="getStatusClass(order.status)"
+              >
+                {{ order.status }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 발주 모달 -->
+    <div
+      v-if="isOrderModalOpen"
+      class="modal-overlay"
+      @click="closeOrderModal"
+    >
+      <div
+        class="modal-content"
+        @click.stop
+      >
+        <h3>본사 재고 신청</h3>
+
+        <p class="modal-desc">
+          필요한 벌크 원자재 물품과 신청 수량을 입력하세요.
+        </p>
+
+        <div class="form-group">
+          <label>신청 물품 선택</label>
+
+          <select v-model="orderForm.itemId">
+            <option
+              v-for="item in branchInventory"
+              :key="item.itemId"
+              :value="item.itemId"
+            >
+              {{ item.itemName }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>신청 수량 (개/Box)</label>
+
+          <input
+            v-model.number="orderForm.quantity"
+            type="number"
+            min="1"
+            placeholder="수량 입력"
+          />
+        </div>
+
+        <div class="modal-actions">
+          <button
+            class="btn-cancel"
+            @click="closeOrderModal"
+          >
+            취소
+          </button>
+
+          <button
+            class="btn-submit"
+            @click="submitOrder"
+          >
+            신청 완료
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 영수증 모달 -->
+    <div
+      v-if="isReceiptModalOpen"
+      class="modal-overlay"
+      @click="closeReceiptModal"
+    >
+      <div
+        class="receipt-modal-content"
+        @click.stop
+      >
+        <div class="receipt-header">
+          <h4>🍦 스윗스쿱 강남역점</h4>
+          <p>주문 영수증 (관리자 확인용)</p>
+        </div>
+
+        <div class="receipt-info-box">
+          <div>
+            주문번호: #{{ selectedReceipt?.orderNo }}
+          </div>
+
+          <div>
+            웨이팅 번호:
+            <strong>
+              {{ selectedReceipt?.waitingNo }}번
+            </strong>
+          </div>
+
+          <div>
+            주문 상태: {{ selectedReceipt?.status }}
+          </div>
+        </div>
+
+        <div class="receipt-divider-line"></div>
+
+        <div class="receipt-items-list">
+          <div
+            v-for="(item, idx) in selectedReceipt?.items || []"
+            :key="idx"
+            class="receipt-item-row"
+          >
+            <div class="receipt-item-name">
+              <span>
+                <span
+                  v-if="item.sizeName"
+                  class="receipt-size"
+                >
+                  [{{ item.sizeName }}]
+                </span>
+
+                {{ getItemDisplayName(item) }}
+              </span>
+
+              <span>
+                {{ item.quantity || 0 }}개
+              </span>
+            </div>
+
+            <div
+              v-if="formatItemFlavors(item)"
+              class="receipt-sub-tag"
+            >
+              맛: {{ formatItemFlavors(item) }}
+            </div>
+
+            <div
+              v-if="formatOptions(item)"
+              class="receipt-sub-tag"
+            >
+              옵션: {{ formatOptions(item) }}
+            </div>
+
+            <div class="receipt-item-price">
+              {{
+                Number(
+                  item.totalPrice ||
+                  item.price ||
+                  0
+                ).toLocaleString()
+              }}원
+            </div>
+          </div>
+        </div>
+
+        <div class="receipt-divider-line"></div>
+
+        <div class="receipt-total-box">
+          <span>총 결제금액</span>
+
+          <span class="total-price-text">
+            {{
+              Number(
+                selectedReceipt?.totalPrice || 0
+              ).toLocaleString()
+            }}원
+          </span>
+        </div>
+
+        <div class="receipt-footer-text">
+          결제수단:
+          {{ selectedReceipt?.paymentMethod || "카드결제" }}
+          <br />
+          감사합니다. 언제나 신선함을 전하겠습니다.
+        </div>
+
+        <div class="modal-actions receipt-close-actions">
+          <button
+            class="btn-cancel receipt-close-btn"
+            @click="closeReceiptModal"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import axios from '../api/index.js';
+import {
+  onMounted,
+  onUnmounted,
+  ref
+} from "vue";
 
-import { db } from '@/api/firebase';
-import { collection, query, onSnapshot, doc, deleteDoc } from "firebase/firestore";
+import axios from "../api/index.js";
 
-const branchId = ref(Number(localStorage.getItem('branchId')) || 1);
+import {
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  query
+} from "firebase/firestore";
+
+import { db } from "@/api/firebase";
+
+const branchId = ref(
+  Number(localStorage.getItem("branchId")) || 1
+);
 
 const branchInventory = ref([]);
 const myRequests = ref([]);
 const realtimeOrders = ref([]);
 
-const isOrderModalOpen = ref(false);
-const orderForm = ref({ itemId: 1, quantity: 1 });
+const kioskList = ref([]);
+const isKioskLoading = ref(false);
 
-// 영수증 모달 관련 상태
+const isOrderModalOpen = ref(false);
+const orderForm = ref({
+  itemId: 1,
+  quantity: 1
+});
+
 const isReceiptModalOpen = ref(false);
 const selectedReceipt = ref(null);
 
-// [테스트용] 자정 초기화 수동 실행 함수
+let unsubscribeOrders = null;
+
+/*
+ * 키오스크 목록 조회
+ */
+const fetchKiosks = async () => {
+  isKioskLoading.value = true;
+
+  try {
+    const response = await axios.get(
+      `/api/admin/branches/${branchId.value}/kiosks`
+    );
+
+    const data = Array.isArray(response.data)
+      ? response.data
+      : [];
+
+    kioskList.value = data.map((item) => ({
+      ...item,
+      isUpdating: false
+    }));
+  } catch (primaryError) {
+    try {
+      const fallbackResponse = await axios.get(
+        `/api/kiosk/branch/${branchId.value}`
+      );
+
+      const data = Array.isArray(
+        fallbackResponse.data
+      )
+        ? fallbackResponse.data
+        : [];
+
+      kioskList.value = data.map((item) => ({
+        ...item,
+        isUpdating: false
+      }));
+    } catch (fallbackError) {
+      console.error(
+        "키오스크 목록 조회 실패:",
+        fallbackError
+      );
+
+      kioskList.value = [];
+    }
+  } finally {
+    isKioskLoading.value = false;
+  }
+};
+
+const isKioskActive = (status) => {
+  return (
+    status === "ACTIVE" ||
+    status === "정상"
+  );
+};
+
+const getStatusText = (status) => {
+  if (
+    status === "ACTIVE" ||
+    status === "정상"
+  ) {
+    return "정상";
+  }
+
+  if (
+    status === "INACTIVE" ||
+    status === "꺼짐"
+  ) {
+    return "꺼짐";
+  }
+
+  return status || "장애";
+};
+
+const getStatusBadgeClass = (status) => {
+  const active = isKioskActive(status);
+
+  return {
+    "status-badge": true,
+    "badge-normal": active,
+    "badge-off":
+      !active && status !== "장애",
+    "badge-error": status === "장애"
+  };
+};
+
+const toggleKioskStatus = async (kiosk) => {
+  const active = isKioskActive(kiosk.status);
+
+  const nextDisplayStatus =
+    active ? "꺼짐" : "정상";
+
+  const nextApiStatus =
+    active ? "INACTIVE" : "ACTIVE";
+
+  const confirmed = window.confirm(
+    active
+      ? `키오스크 #${kiosk.id} 가동을 중지하시겠습니까?`
+      : `키오스크 #${kiosk.id}를 활성화하시겠습니까?`
+  );
+
+  if (!confirmed) {
+    kioskList.value = [...kioskList.value];
+    return;
+  }
+
+  kiosk.isUpdating = true;
+
+  try {
+    try {
+      const response = await axios.patch(
+        `/api/admin/kiosks/${kiosk.id}/status`,
+        {
+          status: nextDisplayStatus
+        }
+      );
+
+      kiosk.status =
+        response.data?.status ||
+        nextDisplayStatus;
+    } catch (primaryError) {
+      const response = await axios.patch(
+        `/api/kiosk/${kiosk.id}/status`,
+        null,
+        {
+          params: {
+            status: nextApiStatus
+          }
+        }
+      );
+
+      kiosk.status =
+        response.data?.status ||
+        nextApiStatus;
+    }
+  } catch (error) {
+    console.error(
+      "키오스크 상태 변경 실패:",
+      error
+    );
+
+    window.alert(
+      "키오스크 상태 변경에 실패했습니다."
+    );
+  } finally {
+    kiosk.isUpdating = false;
+  }
+};
+
+/*
+ * 테스트 초기화
+ */
 const testResetOrders = async () => {
-    if (!confirm("일일 초기화를 진행하시겠습니까? (Firebase 실시간 주문 목록이 초기화됩니다)")) return;
-    
-    try {
-        await axios.post('/api/admin/orders/reset');
-        alert("초기화가 완료되었습니다. 웨이팅 번호가 1번부터 시작됩니다.");
-        realtimeOrders.value = [];
-    } catch (error) {
-        console.error("초기화 실패:", error);
-        alert("초기화 요청 중 오류가 발생했습니다.");
-    }
+  const confirmed = window.confirm(
+    "일일 초기화를 진행하시겠습니까? Firebase 실시간 주문 목록이 초기화됩니다."
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await axios.post(
+      "/api/admin/orders/reset"
+    );
+
+    realtimeOrders.value = [];
+
+    window.alert(
+      "초기화가 완료되었습니다. 웨이팅 번호가 1번부터 시작됩니다."
+    );
+  } catch (error) {
+    console.error(
+      "초기화 실패:",
+      error
+    );
+
+    window.alert(
+      "초기화 요청 중 오류가 발생했습니다."
+    );
+  }
 };
 
+/*
+ * 지점 재고 조회
+ */
 const fetchBranchInventory = async () => {
-    try {
-        const res = await axios.get(`/api/admin/branches/${branchId.value}/inventory`);
-        branchInventory.value = res.data.map(
-            inv => ({ itemId: inv.item.id, itemName: inv.item.itemName, stockLevel: inv.stockLevel })
-        );
-    } catch (error) {
-        branchInventory.value = [
-            { itemId: 1, itemName: '엄마는 외계인 튜브(1000g)', stockLevel: 8500 },
-            { itemId: 2, itemName: '아몬드 봉봉 튜브(1000g)', stockLevel: 2100 },
-            { itemId: 3, itemName: '민트 초콜릿 칩 튜브(1000g)', stockLevel: 6000 },
-            { itemId: 4, itemName: '그린티 튜브(1000g)', stockLevel: 4500 }
-        ];
-    }
+  try {
+    const response = await axios.get(
+      `/api/admin/branches/${branchId.value}/inventory`
+    );
+
+    const data = Array.isArray(response.data)
+      ? response.data
+      : [];
+
+    branchInventory.value = data.map(
+      (inventory) => ({
+        itemId:
+          inventory.item?.id ||
+          inventory.itemId,
+
+        itemName:
+          inventory.item?.itemName ||
+          inventory.itemName ||
+          "원자재",
+
+        stockLevel: Number(
+          inventory.stockLevel ?? 0
+        )
+      })
+    );
+  } catch (error) {
+    console.error(
+      "지점 재고 조회 실패:",
+      error
+    );
+
+    branchInventory.value = [];
+  }
 };
 
+/*
+ * 지점 발주 내역 조회
+ */
 const fetchMyRequests = async () => {
-    try {
-        const res = await axios.get(`/api/admin/branches/${branchId.value}/orders`);
-        myRequests.value = res.data.map(order => {
-            const rawDate = order.requestDate || order.regDate || order.createdDate || '';
-            const formattedDate = rawDate ? rawDate.substring(0, 10).replace(/-/g, '.') : '';
-            return {
-                id: order.id,
-                menuName: order.item ? order.item.itemName : (order.itemName || '신청 물품'),
-                quantity: order.requestQuantity || order.quantity || 0,
-                requestDate: formattedDate,
-                status: order.status || order.orderStatus || '대기 중'
-            };
-        });
-    } catch (error) {
-        myRequests.value = [
-            { id: 104, menuName: '아몬드 봉봉 튜브', quantity: 5, requestDate: '2026.07.16', status: '대기 중' },
-            { id: 102, menuName: '엄마는 외계인 튜브', quantity: 10, requestDate: '2026.07.14', status: '배송 중' },
-            { id: 101, menuName: '그린티 튜브', quantity: 3, requestDate: '2026.07.12', status: '완료' }
-        ];
-    }
+  try {
+    const response = await axios.get(
+      `/api/admin/branches/${branchId.value}/orders`
+    );
+
+    const data = Array.isArray(response.data)
+      ? response.data
+      : [];
+
+    myRequests.value = data.map((order) => {
+      const rawDate =
+        order.requestDate ||
+        order.regDate ||
+        order.createdDate ||
+        "";
+
+      const formattedDate = rawDate
+        ? String(rawDate)
+            .substring(0, 10)
+            .replace(/-/g, ".")
+        : "";
+
+      return {
+        id: order.id,
+
+        menuName:
+          order.item?.itemName ||
+          order.itemName ||
+          "신청 물품",
+
+        quantity:
+          order.requestQuantity ||
+          order.quantity ||
+          0,
+
+        requestDate: formattedDate,
+
+        status:
+          order.approvalStatus ||
+          order.status ||
+          order.orderStatus ||
+          "대기 중"
+      };
+    });
+  } catch (error) {
+    console.error(
+      "지점 발주 내역 조회 실패:",
+      error
+    );
+
+    myRequests.value = [];
+  }
 };
 
+/*
+ * 주문 표시 헬퍼
+ */
 const getItemDisplayName = (item) => {
-    if (!item) return '메뉴명 없음';
-    
-    let baseName = item.name || item.menuName || item.productName || item.title || '';
-    const icecreamSizes = [
-        '파인트', '쿼터', '패밀리', '하프갤런', '싱글', '더블', '싱글콘', '더블콘', '싱글컵', '더블컵'
-    ];
+  if (!item) {
+    return "메뉴명 없음";
+  }
 
-    if (icecreamSizes.some(s => (item.sizeName || '').includes(s)) || baseName.includes(',')) {
-        return '아이스크림';
-    }
+  const baseName =
+    item.name ||
+    item.menuName ||
+    item.productName ||
+    item.title ||
+    "";
 
-    return baseName;
+  const icecreamSizes = [
+    "파인트",
+    "쿼터",
+    "패밀리",
+    "하프갤런",
+    "싱글",
+    "더블",
+    "싱글콘",
+    "더블콘",
+    "싱글컵",
+    "더블컵"
+  ];
+
+  const isIceCream =
+    icecreamSizes.some((size) =>
+      String(item.sizeName || "").includes(size)
+    ) ||
+    baseName.includes(",");
+
+  return isIceCream
+    ? "아이스크림"
+    : baseName || "메뉴명 없음";
 };
 
 const formatItemFlavors = (item) => {
-    if (!item) return '';
-    
-    const rawFlavors = item.menus || item.flavors || [];
-    let flavorList = [];
-    if (Array.isArray(rawFlavors)) {
-        flavorList = rawFlavors
-            .map(m => (typeof m === 'object' && m !== null ? (m.name || m.flavorName || '') : m))
-            .filter(Boolean);
-    } else if (typeof rawFlavors === 'string') {
-        flavorList = [rawFlavors];
-    }
+  if (!item) {
+    return "";
+  }
 
-    if (flavorList.length === 0 && item.menuName) {
-        if (item.sizeName) {
-            flavorList = item.menuName.split(',').map(s => s.trim());
-        } else if (item.menuName.includes(',')) {
-            flavorList = item.menuName.split(',').map(s => s.trim());
+  const rawFlavors =
+    item.menus ||
+    item.flavors ||
+    [];
+
+  let flavorList = [];
+
+  if (Array.isArray(rawFlavors)) {
+    flavorList = rawFlavors
+      .map((menu) => {
+        if (
+          typeof menu === "object" &&
+          menu !== null
+        ) {
+          return (
+            menu.name ||
+            menu.flavorName ||
+            menu.menuName ||
+            ""
+          );
         }
-    }
 
-    if (flavorList.length === 0) return '';
-    return flavorList.join(', ');
+        return menu;
+      })
+      .filter(Boolean);
+  } else if (
+    typeof rawFlavors === "string"
+  ) {
+    flavorList = rawFlavors
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
+  if (
+    flavorList.length === 0 &&
+    item.menuName &&
+    (
+      item.sizeName ||
+      item.menuName.includes(",")
+    )
+  ) {
+    flavorList = String(item.menuName)
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
+  return flavorList.join(", ");
 };
 
 const formatOptions = (item) => {
-    if (item && item.optionName) {
-        return item.optionName;
-    }
+  if (!item) {
+    return "";
+  }
 
-    const options = item?.options;
-    if (!options) return '';
-    if (Array.isArray(options)) {
-        return options
-            .map(opt => (typeof opt === 'object' && opt !== null ? (opt.name || opt.label || '') : opt))
-            .join(', ');
-    }
-    if (typeof options === 'object') {
-        return options.name || options.label || JSON.stringify(options);
-    }
-    return String(options);
+  if (item.optionName) {
+    return item.optionName;
+  }
+
+  const options = item.options;
+
+  if (!options) {
+    return "";
+  }
+
+  if (Array.isArray(options)) {
+    return options
+      .map((option) => {
+        if (
+          typeof option === "object" &&
+          option !== null
+        ) {
+          return (
+            option.name ||
+            option.label ||
+            option.optionName ||
+            ""
+          );
+        }
+
+        return option;
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (
+    typeof options === "object"
+  ) {
+    return (
+      options.name ||
+      options.label ||
+      options.optionName ||
+      JSON.stringify(options)
+    );
+  }
+
+  return String(options);
 };
 
-// Firestore 실시간 주문 감지 리스너 (소리 중복 방지를 위해 대시보드에서는 소리 재생 코드 제외, docId 함께 저장)
+/*
+ * Firebase 실시간 주문
+ */
 const initRealtimeOrderListener = () => {
-    const ordersQuery = query(collection(db, "orders"));
+  const ordersQuery = query(
+    collection(db, "orders")
+  );
 
-    onSnapshot(ordersQuery, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-            if (change.type === "added") {
-                const newOrder = change.doc.data();
+  unsubscribeOrders = onSnapshot(
+    ordersQuery,
 
-                realtimeOrders.value.unshift({
-                    ...newOrder,
-                    docId: change.doc.id, // Firestore 문서 고유 ID 저장
-                    expanded: false
-                });
+    (snapshot) => {
+      snapshot
+        .docChanges()
+        .forEach((change) => {
+          if (change.type === "added") {
+            const orderData =
+              change.doc.data();
+
+            const alreadyExists =
+              realtimeOrders.value.some(
+                (order) =>
+                  order.docId ===
+                  change.doc.id
+              );
+
+            if (alreadyExists) {
+              return;
             }
+
+            realtimeOrders.value.unshift({
+              ...orderData,
+              docId: change.doc.id,
+              expanded: false
+            });
+          }
+
+          if (change.type === "modified") {
+            const index =
+              realtimeOrders.value.findIndex(
+                (order) =>
+                  order.docId ===
+                  change.doc.id
+              );
+
+            if (index !== -1) {
+              realtimeOrders.value[index] = {
+                ...realtimeOrders.value[index],
+                ...change.doc.data()
+              };
+            }
+          }
+
+          if (change.type === "removed") {
+            realtimeOrders.value =
+              realtimeOrders.value.filter(
+                (order) =>
+                  order.docId !==
+                  change.doc.id
+              );
+          }
         });
-    });
+    },
+
+    (error) => {
+      console.error(
+        "Firebase 실시간 주문 연결 실패:",
+        error
+      );
+    }
+  );
 };
 
 const toggleOrderDetail = (orderId) => {
-    const target = realtimeOrders.value.find(o => o.orderId === orderId);
-    if (target) {
-        target.expanded = !target.expanded;
-    }
+  const target =
+    realtimeOrders.value.find(
+      (order) =>
+        order.orderId === orderId
+    );
+
+  if (target) {
+    target.expanded =
+      !target.expanded;
+  }
 };
 
-// 제조 완료 시 Firebase 문서 삭제 및 화면 제거
 const completeOrder = async (orderId) => {
-    const targetOrder = realtimeOrders.value.find(order => order.orderId === orderId);
-    if (!targetOrder) return;
+  const targetOrder =
+    realtimeOrders.value.find(
+      (order) =>
+        order.orderId === orderId
+    );
 
-    try {
-        if (targetOrder.docId) {
-            await deleteDoc(doc(db, "orders", targetOrder.docId));
-        }
-        realtimeOrders.value = realtimeOrders.value.filter(order => order.orderId !== orderId);
-    } catch (error) {
-        console.error("주문 완료 처리 중 오류 발생:", error);
-        alert("주문 처리 중 오류가 발생했습니다.");
+  if (!targetOrder) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "이 주문을 제조 완료 처리하시겠습니까?"
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    if (targetOrder.docId) {
+      await deleteDoc(
+        doc(
+          db,
+          "orders",
+          targetOrder.docId
+        )
+      );
     }
+
+    realtimeOrders.value =
+      realtimeOrders.value.filter(
+        (order) =>
+          order.orderId !== orderId
+      );
+  } catch (error) {
+    console.error(
+      "주문 완료 처리 실패:",
+      error
+    );
+
+    window.alert(
+      "주문 완료 처리 중 오류가 발생했습니다."
+    );
+  }
 };
 
-// 주문 취소 시 Firebase 문서 삭제 및 화면 제거
-// 주문 취소 시 Firebase 문서 삭제 + 백엔드 DB 삭제 API 동시 호출
 const cancelOrder = async (orderId) => {
-    if (!confirm("정말 이 주문을 취소하시겠습니까? 데이터베이스에서 완전히 삭제됩니다.")) return;
+  const confirmed = window.confirm(
+    "정말 이 주문을 취소하시겠습니까? 데이터베이스에서 주문 정보가 삭제됩니다."
+  );
 
-    const targetOrder = realtimeOrders.value.find(order => order.orderId === orderId);
-    if (!targetOrder) return;
+  if (!confirmed) {
+    return;
+  }
 
-    try {
-        // 1. 스프링 부트 백엔드 DB 삭제 API 호출 (orderId가 RDB의 PK인 경우)
-        // 만약 orderId가 숫자형 PK라면 아래와 같이 호출합니다.
-        await axios.delete(`/api/admin/orders/${orderId}`);
+  const targetOrder =
+    realtimeOrders.value.find(
+      (order) =>
+        order.orderId === orderId
+    );
 
-        // 2. Firebase 문서 삭제
-        if (targetOrder.docId) {
-            await deleteDoc(doc(db, "orders", targetOrder.docId));
-        }
+  if (!targetOrder) {
+    return;
+  }
 
-        // 3. 화면 목록에서 제거
-        realtimeOrders.value = realtimeOrders.value.filter(order => order.orderId !== orderId);
-        alert("주문이 성공적으로 취소 및 삭제되었습니다.");
-    } catch (error) {
-        console.error("주문 취소 처리 중 오류 발생:", error);
-        alert("주문 취소 처리 중 오류가 발생했습니다.");
+  try {
+    await axios.delete(
+      `/api/admin/orders/${orderId}`
+    );
+
+    if (targetOrder.docId) {
+      await deleteDoc(
+        doc(
+          db,
+          "orders",
+          targetOrder.docId
+        )
+      );
     }
+
+    realtimeOrders.value =
+      realtimeOrders.value.filter(
+        (order) =>
+          order.orderId !== orderId
+      );
+
+    window.alert(
+      "주문이 취소되었습니다."
+    );
+  } catch (error) {
+    console.error(
+      "주문 취소 처리 실패:",
+      error
+    );
+
+    window.alert(
+      "주문 취소 처리 중 오류가 발생했습니다."
+    );
+  }
 };
+
+/*
+ * 영수증 모달
+ */
 const openReceiptModal = (order) => {
-    selectedReceipt.value = order;
-    isReceiptModalOpen.value = true;
+  selectedReceipt.value = order;
+  isReceiptModalOpen.value = true;
 };
 
 const closeReceiptModal = () => {
-    isReceiptModalOpen.value = false;
-    selectedReceipt.value = null;
+  isReceiptModalOpen.value = false;
+  selectedReceipt.value = null;
+};
+
+/*
+ * 발주 모달
+ */
+const openOrderModal = () => {
+  orderForm.value = {
+    itemId:
+      branchInventory.value[0]?.itemId ||
+      1,
+
+    quantity: 1
+  };
+
+  isOrderModalOpen.value = true;
+};
+
+const closeOrderModal = () => {
+  isOrderModalOpen.value = false;
 };
 
 const submitOrder = async () => {
-    try {
-        const payload = {
-            branchId: branchId.value,
-            itemId: orderForm.value.itemId,
-            quantity: orderForm.value.quantity
-        };
+  const quantity = Number(
+    orderForm.value.quantity
+  );
 
-        await axios.post('/api/admin/branches/orders', payload);
-        alert("본사로 재고 신청이 안전하게 전달되었습니다.");
-        closeOrderModal();
+  if (!orderForm.value.itemId) {
+    window.alert(
+      "신청할 물품을 선택해주세요."
+    );
 
-        const selectedItem = branchInventory.value.find(item => item.itemId === orderForm.value.itemId);
-        const itemName = selectedItem ? selectedItem.itemName : '신청 물품';
+    return;
+  }
 
-        const today = new Date();
-        const formattedDate = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
+  if (
+    !Number.isInteger(quantity) ||
+    quantity < 1
+  ) {
+    window.alert(
+      "신청 수량은 1개 이상의 정수로 입력해주세요."
+    );
 
-        const newRequest = {
-            id: myRequests.value.length > 0 ? Math.max(...myRequests.value.map(o => o.id)) + 1 : 1,
-            menuName: itemName,
-            quantity: orderForm.value.quantity,
-            requestDate: formattedDate,
-            status: '대기 중'
-        };
+    return;
+  }
 
-        myRequests.value.unshift(newRequest);
-        fetchBranchInventory();
-        fetchMyRequests();
-    } catch (error) {
-        alert("본사 발주 신청 처리 중 에러가 발생했습니다.");
-    }
+  try {
+    const payload = {
+      branchId: branchId.value,
+      itemId: orderForm.value.itemId,
+      quantity
+    };
+
+    await axios.post(
+      "/api/admin/branches/orders",
+      payload
+    );
+
+    window.alert(
+      "본사로 재고 신청이 전달되었습니다."
+    );
+
+    closeOrderModal();
+
+    await Promise.all([
+      fetchBranchInventory(),
+      fetchMyRequests()
+    ]);
+  } catch (error) {
+    console.error(
+      "본사 발주 신청 실패:",
+      error
+    );
+
+    window.alert(
+      "본사 발주 신청 처리 중 오류가 발생했습니다."
+    );
+  }
 };
 
-const getPercentage = (level) => Math.min(100, (level / 10000) * 100);
+/*
+ * UI 헬퍼
+ */
+const getPercentage = (level) => {
+  const numericLevel =
+    Number(level) || 0;
+
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      (numericLevel / 10000) * 100
+    )
+  );
+};
 
 const getProgressBarClass = (level) => {
-    if (level < 3000) return 'bar-danger';
-    if (level < 6000) return 'bar-warning';
-    return 'bar-success';
+  const numericLevel =
+    Number(level) || 0;
+
+  if (numericLevel < 3000) {
+    return "bar-danger";
+  }
+
+  if (numericLevel < 6000) {
+    return "bar-warning";
+  }
+
+  return "bar-success";
 };
 
 const getStatusClass = (status) => {
-    switch (status) {
-        case '대기 중': return 'status-waiting';
-        case '배송 중': return 'status-shipping';
-        case '완료': return 'status-done';
-        default: return '';
-    }
-};
+  switch (status) {
+    case "대기 중":
+    case "대기중":
+    case "PENDING":
+      return "status-waiting";
 
-const openOrderModal = () => {
-    orderForm.value = {
-        itemId: branchInventory.value[0]?.itemId || 1,
-        quantity: 1
-    };
-    isOrderModalOpen.value = true;
+    case "배송 중":
+    case "배송중":
+    case "SHIPPING":
+      return "status-shipping";
+
+    case "완료":
+    case "승인완료":
+    case "APPROVED":
+    case "COMPLETED":
+      return "status-done";
+
+    default:
+      return "";
+  }
 };
-const closeOrderModal = () => isOrderModalOpen.value = false;
 
 onMounted(() => {
-    fetchBranchInventory();
-    fetchMyRequests();
-    initRealtimeOrderListener();
+  fetchKiosks();
+  fetchBranchInventory();
+  fetchMyRequests();
+  initRealtimeOrderListener();
+});
+
+onUnmounted(() => {
+  if (unsubscribeOrders) {
+    unsubscribeOrders();
+    unsubscribeOrders = null;
+  }
 });
 </script>
 
 <style scoped>
 .branch-dashboard {
-    padding: 30px;
-    background-color: #f8fafc;
-    min-height: 100vh;
-    box-sizing: border-box;
+  min-height: 100vh;
+  padding: 30px;
+  box-sizing: border-box;
+  background-color: #f8fafc;
 }
+
 .dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 24px;
 }
+
 .dashboard-header h2 {
-    font-size: 22px;
-    color: #1e293b;
-    font-weight: 700;
+  margin: 0;
+  color: #1e293b;
+  font-size: 22px;
+  font-weight: 700;
 }
+
 .subtitle {
-    font-size: 14px;
-    color: #64748b;
-    margin-top: 4px;
+  margin-top: 4px;
+  margin-bottom: 0;
+  color: #64748b;
+  font-size: 14px;
 }
-.btn-order {
-    background: #d13b7d;
-    color: white;
-    border: none;
-    padding: 10px 18px;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
+
+.btn-order,
 .btn-test {
-    background: #f1f5f9;
-    color: #475569;
-    border: 1px solid #cbd5e1;
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 13px;
-    transition: background-color 0.2s;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
+
+.btn-order {
+  border: 0;
+  background: #d13b7d;
+  color: white;
+}
+
+.btn-test {
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .btn-test:hover {
-    background: #e2e8f0;
+  background: #e2e8f0;
 }
+
 .dashboard-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
 }
+
 .grid-section {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 24px;
+  height: 380px;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
 }
+
 .section-title-box {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
 }
+
 .section-title-box h3 {
-    font-size: 16px;
-    font-weight: 700;
-    color: #0f172a;
+  margin: 0;
+  color: #0f172a;
+  font-size: 16px;
+  font-weight: 700;
 }
+
 .badge-tag {
-    background: #fdf2f8;
-    color: #d13b7d;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
 }
-.inventory-cards {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+
+.badge-tag.pink {
+  background: #fdf2f8;
+  color: #d13b7d;
 }
-.inv-card {
-    border: 1px solid #f1f5f9;
-    padding: 14px;
-    border-radius: 8px;
+
+.badge-tag.green {
+  background: #ecfdf5;
+  color: #059669;
 }
-.inv-info {
-    display: flex;
-    justify-content: space-between;
-    font-size: 14px;
-    margin-bottom: 8px;
+
+.badge-tag.blue {
+  background: #eff6ff;
+  color: #2563eb;
 }
-.inv-name {
-    font-weight: 600;
-    color: #334155;
+
+.badge-tag.gray {
+  background: #f1f5f9;
+  color: #475569;
 }
-.inv-weight {
-    font-weight: 700;
-    color: #475569;
+
+.kiosk-control-container {
+  flex: 1;
+  overflow-y: auto;
 }
-.progress-bar-bg {
-    height: 8px;
-    background: #f1f5f9;
-    border-radius: 4px;
-    overflow: hidden;
+
+.kiosk-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
 }
-.progress-bar-fill {
-    height: 100%;
-    border-radius: 4px;
-    transition: width 0.3s ease;
+
+.kiosk-card {
+  padding: 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  background: white;
+  transition: 0.2s;
 }
-.bar-success { background: #10b981; }
-.bar-warning { background: #f59e0b; }
-.bar-danger { background: #ef4444; }
+
+.kiosk-card.is-active {
+  border-color: #10b981;
+}
+
+.kiosk-card-header,
+.kiosk-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.kiosk-card-header {
+  margin-bottom: 8px;
+}
+
+.kiosk-title {
+  color: #111827;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.status-badge {
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.badge-normal {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badge-off {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.badge-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.kiosk-card-body {
+  margin-bottom: 10px;
+}
+
+.kiosk-id-info {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.kiosk-card-footer {
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.switch-text {
+  color: #374151;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.switch {
+  width: 42px;
+  height: 22px;
+  position: relative;
+  display: inline-block;
+}
+
+.switch input {
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  background: #d1d5db;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.slider::before {
+  width: 16px;
+  height: 16px;
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  border-radius: 50%;
+  background: white;
+  content: "";
+  transition: 0.3s;
+}
+
+input:checked + .slider {
+  background: #10b981;
+}
+
+input:checked + .slider::before {
+  transform: translateX(20px);
+}
+
+input:disabled + .slider {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.inventory-cards,
 .order-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-height: 380px;
-    overflow-y: auto;
+  flex: 1;
+  overflow-y: auto;
 }
+
+.inventory-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inv-card {
+  padding: 12px;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+}
+
+.inv-info {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: 13.5px;
+}
+
+.inv-name {
+  color: #334155;
+  font-weight: 600;
+}
+
+.inv-weight {
+  color: #475569;
+  font-weight: 700;
+}
+
+.progress-bar-bg {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #f1f5f9;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.bar-success {
+  background: #10b981;
+}
+
+.bar-warning {
+  background: #f59e0b;
+}
+
+.bar-danger {
+  background: #ef4444;
+}
+
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .order-item {
-    border-bottom: 1px solid #f1f5f9;
-    padding-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f1f5f9;
 }
-.order-item:last-child {
-    border-bottom: none;
-}
+
 .live-order-card {
-    background: #fffbfd;
-    border: 1px solid #fce7f3;
-    padding: 12px;
-    border-radius: 8px;
-    transition: background-color 0.2s;
+  padding: 12px;
+  border: 1px solid #fce7f3;
+  border-radius: 8px;
+  background: #fffbfd;
+  cursor: pointer;
 }
+
 .live-order-card:hover {
-    background-color: #fff5f8;
+  background: #fff5f8;
 }
+
+.order-meta,
+.order-body,
+.order-total-row,
+.detail-item-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .order-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 12px;
-    color: #94a3b8;
-    margin-bottom: 4px;
+  gap: 10px;
+  margin-bottom: 4px;
+  color: #94a3b8;
+  font-size: 12px;
 }
+
 .order-id {
-    font-weight: 600;
-    color: #475569;
+  color: #475569;
+  font-weight: 600;
 }
-.order-body {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+
+.order-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
+
+.order-body-column {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.order-total-row {
+  width: 100%;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.order-total-price {
+  color: #d13b7d;
+}
+
 .order-menu {
-    font-size: 14px;
-    font-weight: 600;
-    color: #334155;
+  color: #334155;
+  font-size: 13.5px;
+  font-weight: 600;
 }
+
 .order-status {
-    font-size: 12px;
-    font-weight: 700;
-    padding: 4px 8px;
-    border-radius: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 700;
 }
-.btn-receipt {
-    background: #fdf2f8;
-    color: #d13b7d;
-    border: 1px solid #fce7f3;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
+
+.expand-icon {
+  color: #64748b;
+  font-size: 11px;
 }
-.btn-receipt:hover {
-    background: #fce7f3;
-}
+
+.btn-receipt,
+.btn-complete,
 .btn-cancel-order {
-    background: #fef2f2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background-color 0.2s;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
 }
-.btn-cancel-order:hover {
-    background: #fee2e2;
+
+.btn-receipt {
+  border: 1px solid #fce7f3;
+  background: #fdf2f8;
+  color: #d13b7d;
 }
+
 .btn-complete {
-    background: #ecfdf5;
-    color: #059669;
-    border: 1px solid #a7f3d0;
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
+  border: 1px solid #a7f3d0;
+  background: #ecfdf5;
+  color: #059669;
 }
-.btn-complete:hover {
-    background: #d1fae5;
+
+.btn-cancel-order {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
 }
+
 .order-detail-box {
-    width: 100%;
-    margin-top: 8px;
-    animation: fadeIn 0.2s ease-in-out;
+  width: 100%;
+  margin-top: 8px;
+  animation: fade-in 0.2s ease;
 }
+
 .detail-divider {
-    height: 1px;
-    background-color: #f1f5f9;
-    margin: 8px 0;
+  height: 1px;
+  margin: 6px 0;
+  background: #f1f5f9;
 }
+
 .detail-title {
-    font-size: 12px;
-    font-weight: 700;
-    color: #d13b7d;
-    margin-bottom: 6px;
+  margin-bottom: 4px;
+  color: #d13b7d;
+  font-size: 11.5px;
+  font-weight: 700;
 }
+
 .detail-item-row {
-    background: #ffffff;
-    border: 1px solid #f1f5f9;
-    padding: 8px 10px;
-    border-radius: 6px;
-    margin-bottom: 6px;
-    font-size: 13px;
+  margin-bottom: 4px;
+  padding: 8px;
+  border: 1px solid #f1f5f9;
+  border-radius: 6px;
+  background: white;
+  font-size: 12.5px;
 }
-.option-tag {
-    font-size: 11px;
-    color: #2563eb;
-    background: #eff6ff;
-    padding: 3px 6px;
-    border-radius: 4px;
-    margin-top: 4px;
-    display: inline-block;
-    font-weight: 600;
+
+.detail-item-name {
+  color: #1e293b;
+  font-weight: 600;
 }
-.receipt-modal-content {
-    background: #ffffff;
-    padding: 24px;
-    border-radius: 8px;
-    width: 380px;
-    font-family: 'Courier New', Courier, monospace;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-    box-sizing: border-box;
+
+.detail-size-name {
+  margin-right: 4px;
+  color: #d13b7d;
 }
-.receipt-header {
-    text-align: center;
-    margin-bottom: 12px;
-}
-.receipt-header h4 {
-    font-size: 16px;
-    font-weight: 700;
-    color: #0f172a;
-    margin-bottom: 2px;
-}
-.receipt-header p {
-    font-size: 12px;
-    color: #64748b;
-}
-.receipt-info-box {
-    font-size: 12px;
-    color: #334155;
-    margin-bottom: 8px;
-    line-height: 1.5;
-}
-.receipt-divider-line {
-    border-top: 1px dashed #cbd5e1;
-    margin: 10px 0;
-}
-.receipt-items-list {
-    max-height: 220px;
-    overflow-y: auto;
-}
-.receipt-item-row {
-    margin-bottom: 10px;
-    font-size: 12px;
-}
-.receipt-item-name {
-    font-weight: 700;
-    color: #1e293b;
-    display: flex;
-    justify-content: space-between;
-}
-.receipt-size {
-    color: #d13b7d;
-    margin-right: 4px;
-}
+
+.option-tag,
 .receipt-sub-tag {
-    font-size: 11px;
-    color: #2563eb;
-    background: #eff6ff;
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-top: 3px;
-    display: inline-block;
-    font-weight: 600;
+  display: inline-block;
+  margin-top: 3px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 10.5px;
+  font-weight: 600;
 }
-.receipt-item-price {
-    text-align: right;
-    font-weight: 600;
-    color: #334155;
-    font-size: 12px;
-    margin-top: 2px;
+
+.detail-item-bottom {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12px;
 }
-.receipt-total-box {
-    display: flex;
-    justify-content: space-between;
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
-    margin-top: 8px;
+
+.payment-method {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
 }
-.total-price-text {
-    color: #d13b7d;
+
+.empty-state {
+  padding: 30px 0;
+  color: #94a3b8;
+  font-size: 13px;
+  text-align: center;
 }
-.receipt-footer-text {
-    text-align: center;
-    font-size: 11px;
-    color: #64748b;
-    margin-top: 14px;
-    line-height: 1.4;
+
+.status-waiting {
+  background: #fffbeb;
+  color: #d97706;
 }
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
+
+.status-shipping {
+  background: #eff6ff;
+  color: #2563eb;
 }
-.status-waiting { background: #fffbeb; color: #d97706; }
-.status-shipping { background: #eff6ff; color: #2563eb; }
-.status-done { background: #ecfdf5; color: #059669; }
+
+.status-done {
+  background: #ecfdf5;
+  color: #059669;
+}
+
 .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 999;
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
 }
+
 .modal-content {
-    background: white;
-    padding: 24px;
-    border-radius: 12px;
-    width: 400px;
+  width: 400px;
+  padding: 24px;
+  border-radius: 12px;
+  background: white;
 }
+
+.modal-content h3 {
+  margin-top: 0;
+}
+
 .modal-desc {
-    font-size: 13px;
-    color: #94a3b8;
-    margin-top: 4px;
-    margin-bottom: 18px;
+  margin-top: 4px;
+  margin-bottom: 18px;
+  color: #94a3b8;
+  font-size: 13px;
 }
+
 .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
 }
+
 .form-group label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #475569;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
 }
+
 .form-group input,
 .form-group select {
-    padding: 8px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
 }
+
 .modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
 }
-.btn-cancel {
-    background: #f1f5f9;
-    color: #475569;
-    border: 1px solid #e2e8f0;
-    padding: 10px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-}
+
+.btn-cancel,
 .btn-submit {
-    background: #d13b7d;
-    color: white;
-    border: none;
-    padding: 10px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-cancel {
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.btn-submit {
+  border: 0;
+  background: #d13b7d;
+  color: white;
+  font-weight: 600;
+}
+
+.receipt-modal-content {
+  width: 380px;
+  padding: 24px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 10px 25px
+    rgba(0, 0, 0, 0.2);
+  font-family: "Courier New", Courier, monospace;
+}
+
+.receipt-header {
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.receipt-header h4 {
+  margin-top: 0;
+  margin-bottom: 2px;
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.receipt-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.receipt-info-box {
+  margin-bottom: 8px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.receipt-divider-line {
+  margin: 10px 0;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.receipt-items-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.receipt-item-row {
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.receipt-item-name {
+  display: flex;
+  justify-content: space-between;
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.receipt-size {
+  margin-right: 4px;
+  color: #d13b7d;
+}
+
+.receipt-item-price {
+  margin-top: 2px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.receipt-total-box {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.total-price-text {
+  color: #d13b7d;
+}
+
+.receipt-footer-text {
+  margin-top: 14px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.receipt-close-actions {
+  margin-top: 16px;
+}
+
+.receipt-close-btn {
+  width: 100%;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1000px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-section {
+    height: auto;
+    min-height: 380px;
+  }
+}
+
+@media (max-width: 700px) {
+  .branch-dashboard {
+    padding: 18px;
+  }
+
+  .dashboard-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .order-meta {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .order-actions {
+    flex-wrap: wrap;
+  }
+
+  .modal-content,
+  .receipt-modal-content {
+    width: calc(100vw - 32px);
+  }
 }
 </style>
+```

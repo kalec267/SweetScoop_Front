@@ -71,9 +71,10 @@
           <span class="avatar-circle">관</span>
 
           <span class="admin-name">
-            {{ userRole === "HQ"
-              ? "총 관리자 ▾"
-              : "분점 관리자 ▾"
+            {{
+              userRole === "HQ"
+                ? "총 관리자 ▾"
+                : "분점 관리자 ▾"
             }}
           </span>
         </button>
@@ -122,7 +123,7 @@
           </template>
 
           <!-- 분점 관리자 메뉴 -->
-          <template v-else>
+          <template v-else-if="userRole === 'BRANCH'">
             <router-link
               to="/branch/dashboard"
               class="dropdown-item"
@@ -155,6 +156,7 @@ import {
 } from "vue";
 
 import { useRouter } from "vue-router";
+import axios from "axios";
 
 import {
   collection,
@@ -222,13 +224,14 @@ const getCurrentTime = () => {
  */
 const addNotification = (
   message,
-  type = "알림"
+  type = "알림",
+  receivedAt = getCurrentTime()
 ) => {
   notifications.value.unshift({
     id: createNotificationId(),
     type,
     message,
-    receivedAt: getCurrentTime()
+    receivedAt
   });
 
   /*
@@ -240,6 +243,69 @@ const addNotification = (
   }
 
   hasNewNotification.value = true;
+};
+
+/*
+ * 기존 알림 조회
+ */
+const fetchPreviousNotifications = async () => {
+  try {
+    const response = await axios.get(
+      "/api/admin/sse/notifications",
+      {
+        params: {
+          role: userRole.value
+        }
+      }
+    );
+
+    const previousNotifications =
+      Array.isArray(response.data)
+        ? response.data
+        : [];
+
+    notifications.value =
+      previousNotifications.map((item) => {
+        /*
+         * 백엔드가 문자열 배열을 반환하는 경우
+         */
+        if (typeof item === "string") {
+          return {
+            id: createNotificationId(),
+            type: "기존 알림",
+            message: item,
+            receivedAt: "-"
+          };
+        }
+
+        /*
+         * 백엔드가 객체 배열을 반환하는 경우
+         */
+        return {
+          id:
+            item.id ||
+            createNotificationId(),
+
+          type:
+            item.type ||
+            "기존 알림",
+
+          message:
+            item.message ||
+            String(item),
+
+          receivedAt:
+            item.receivedAt ||
+            item.createdAt ||
+            "-"
+        };
+      });
+  } catch (error) {
+    console.error(
+      "기존 알림 조회 실패:",
+      error
+    );
+  }
 };
 
 /*
@@ -370,7 +436,9 @@ const playDingDongSound = () => {
       );
 
       oscillator.connect(gain);
-      gain.connect(audioContext.destination);
+      gain.connect(
+        audioContext.destination
+      );
 
       oscillator.start(
         audioContext.currentTime +
@@ -460,15 +528,9 @@ const connectFirebaseOrders = () => {
  * SSE 알림 연결
  */
 const connectSse = () => {
-  /*
-   * 로그인 시 저장한 관리자 ID 사용
-   */
   const savedAdminId =
     localStorage.getItem("adminId");
 
-  /*
-   * 관리자 ID가 없으면 역할에 따라 기본값 사용
-   */
   const adminId =
     savedAdminId ||
     (
@@ -486,17 +548,22 @@ const connectSse = () => {
   }
 
   const url =
-    `/api/admin/sse/connect` +
-    `?adminId=${encodeURIComponent(adminId)}`;
+    "/api/admin/sse/connect" +
+    `?role=${encodeURIComponent(userRole.value)}` +
+    `&adminId=${encodeURIComponent(adminId)}`;
 
   sseSource = new EventSource(url);
 
   /*
-   * 백엔드에서 event: notification으로 전송
+   * event: notification
    */
   sseSource.addEventListener(
     "notification",
     (event) => {
+      if (!event.data) {
+        return;
+      }
+
       addNotification(
         event.data,
         "관리자 알림"
@@ -507,7 +574,7 @@ const connectSse = () => {
   );
 
   /*
-   * 백엔드에서 기본 message 이벤트로 전송하는 경우
+   * 기본 message 이벤트
    */
   sseSource.onmessage = (event) => {
     if (!event.data) {
@@ -534,7 +601,10 @@ const connectSse = () => {
   };
 };
 
-onMounted(() => {
+/*
+ * 컴포넌트 시작
+ */
+onMounted(async () => {
   window.addEventListener(
     "click",
     closeAllPopups
@@ -548,10 +618,21 @@ onMounted(() => {
     localStorage.getItem("username") ||
     "";
 
+  /*
+   * 기존 알림 조회
+   */
+  await fetchPreviousNotifications();
+
+  /*
+   * 실시간 연결
+   */
   connectFirebaseOrders();
   connectSse();
 });
 
+/*
+ * 컴포넌트 종료
+ */
 onUnmounted(() => {
   window.removeEventListener(
     "click",
@@ -734,7 +815,7 @@ onUnmounted(() => {
   border-radius: 20px;
   background: white;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: 0.2s;
 }
 
 .profile-btn:hover {

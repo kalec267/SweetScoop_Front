@@ -1,579 +1,401 @@
 <template>
   <div class="dashboard-container">
-    <!-- 상단 대시보드 타이틀 영역 -->
-    <div class="dashboard-header">
-      <div class="header-title">
-        <h2>대시보드</h2>
-        <p class="subtitle">아이스크림 재고 신청 · 배송 현황 한눈에 보기</p>
+    <!-- 대시보드 헤더 -->
+    <div class="page-header">
+      <div>
+        <h2>📊 본사 통합 대시보드</h2>
+        <p>Sweet Scoop 전체 시스템의 핵심 현황을 한눈에 요약 확인하고 빠르게 이동합니다.</p>
+      </div>
+      <div class="current-time">
+        <span>⏰ 기준 시각: {{ currentTime }}</span>
       </div>
     </div>
 
-    <!-- [상단] 4가지 핵심 지표 요약 카드 영역 -->
-    <div class="summary-cards">
-      <!-- 1. 전체 신청 -->
-      <div class="card">
-        <div class="card-body">
-          <div class="card-info">
-            <span class="card-label">전체 신청</span>
-            <h3 class="card-value">{{ summary.totalRequests }}</h3>
-            <span class="card-sub text-success">↗ +12 이번 주</span>
+    <!-- 1. 상단 핵심 KPI 요약 카드 -->
+    <div class="kpi-grid">
+      <!-- 🏢 본사 발주 승인 대기 -->
+      <router-link to="/inventory/hq-orders" class="kpi-card warning-card">
+        <div class="kpi-icon">🏢</div>
+        <div class="kpi-info">
+          <span class="label">본사 발주 승인 대기</span>
+          <div class="value-group">
+            <span class="number">{{ pendingOrdersCount }}</span>
+            <span class="unit">건</span>
           </div>
-          <div class="card-icon-box bg-light-blue">📄</div>
+          <span class="sub-text highlight">⚡ 즉시 승인 필요</span>
+        </div>
+      </router-link>
+
+      <!-- 🚚 배송 관리 요약 -->
+      <router-link to="/delivery" class="kpi-card blue-card">
+        <div class="kpi-icon">🚚</div>
+        <div class="kpi-info">
+          <span class="label">현재 배송 진행 중</span>
+          <div class="value-group">
+            <span class="number">{{ shippingCount }}</span>
+            <span class="unit">건</span>
+          </div>
+          <span class="sub-text">배송 완료 {{ completedDeliveryCount }}건 오늘</span>
+        </div>
+      </router-link>
+
+      <!-- 🏪 분점 관리 요약 -->
+      <router-link to="/admin/branches" class="kpi-card purple-card">
+        <div class="kpi-icon">🏪</div>
+        <div class="kpi-info">
+          <span class="label">운영 중인 전체 분점</span>
+          <div class="value-group">
+            <span class="number">{{ totalBranchesCount }}</span>
+            <span class="unit">개 점포</span>
+          </div>
+          <span class="sub-text">전점 정상 가동 중</span>
+        </div>
+      </router-link>
+
+      <!-- 📈 전체 매출 통계 요약 -->
+      <router-link to="/sales" class="kpi-card green-card">
+        <div class="kpi-icon">📈</div>
+        <div class="kpi-info">
+          <span class="label">금일 전체 매출</span>
+          <div class="value-group">
+            <span class="number">{{ todaySales.toLocaleString() }}</span>
+            <span class="unit">원</span>
+          </div>
+          <span class="sub-text">실시간 전사 집계</span>
+        </div>
+      </router-link>
+    </div>
+
+    <!-- 2. 중단 2열 그리드 섹션 -->
+    <div class="widget-grid">
+      <!-- 📦 [실시간 발주 신청 현황] 위젯 -->
+      <div class="widget-card">
+        <div class="widget-header">
+          <h3>📦 실시간 발주 신청 및 처리 현황</h3>
+          <router-link to="/inventory/hq-orders" class="more-link">본사 발주 승인 ❯</router-link>
+        </div>
+        <div class="widget-body">
+          <div v-if="recentOrders.length === 0" class="empty-state">
+            신청된 발주 내역이 없습니다.
+          </div>
+          <table v-else class="mini-table">
+            <thead>
+              <tr>
+                <th>분점명</th>
+                <th>신청 물품</th>
+                <th>수량</th>
+                <th>발주 상태</th>
+                <th class="center">바로가기</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="order in recentOrders" :key="order.id">
+                <td><strong>{{ getBranchName(order) }}</strong></td>
+                <td>{{ getItemName(order) }}</td>
+                <td><strong>{{ getQuantity(order) }}개</strong></td>
+                <td>
+                  <span :class="['status-badge', getStatusClass(order.approvalStatus || order.status)]">
+                    {{ order.approvalStatus || order.status || '대기중' }}
+                  </span>
+                </td>
+                <td class="center">
+                  <router-link to="/inventory/hq-orders" class="link-btn">확인</router-link>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
-      <!-- 2. 처리 대기 -->
-      <div class="card">
-        <div class="card-body">
-          <div class="card-info">
-            <span class="card-label">처리 대기</span>
-            <h3 class="card-value">{{ summary.pendingCount }}</h3>
-            <span class="card-sub text-warning">⚠️ 즉시 확인 필요</span>
-          </div>
-          <div class="card-icon-box bg-light-yellow">🕒</div>
+      <!-- 👥 [회원 & 쿠폰 현황] 위젯 -->
+      <div class="widget-card">
+        <div class="widget-header">
+          <h3>👥 회원 및 쿠폰 발행 현황</h3>
+          <router-link to="/admin/coupons" class="more-link">쿠폰 관리 ❯</router-link>
         </div>
-      </div>
-
-      <!-- 3. 배송 중 -->
-      <div class="card">
-        <div class="card-body">
-          <div class="card-info">
-            <span class="card-label">배송 중</span>
-            <h3 class="card-value">{{ summary.shippingCount }}</h3>
-            <span class="card-sub text-primary">📍 배송 진행 중</span>
+        <div class="widget-body">
+          <div class="stat-dual-box">
+            <div class="stat-sub-card">
+              <span class="stat-title">👥 신규 가입 회원 (오늘)</span>
+              <strong class="stat-val">+{{ todayNewMembers }}명</strong>
+              <span class="stat-desc">총 누적 회원: {{ totalMembers.toLocaleString() }}명</span>
+            </div>
+            <div class="stat-sub-card">
+              <span class="stat-title">🎟️ 발급된 회원 쿠폰</span>
+              <strong class="stat-val">{{ activeCouponsCount }}개</strong>
+              <router-link to="/admin/coupons" class="inner-link">쿠폰 관리 이동 ❯</router-link>
+            </div>
           </div>
-          <div class="card-icon-box bg-light-purple">🚚</div>
-        </div>
-      </div>
 
-      <!-- 4. 전체 분점 -->
-      <div class="card">
-        <div class="card-body">
-          <div class="card-info">
-            <span class="card-label">전체 분점</span>
-            <h3 class="card-value">{{ summary.activeBranches }}</h3>
-            <span class="card-sub text-success">✅ 전점 정상 운영</span>
+          <!-- 💡 [템플릿 반영] 등록된 쿠폰 템플릿 실시간 리스트 -->
+          <div class="template-coupon-section">
+            <div class="sub-widget-header">
+              <span class="sub-title">📌 등록된 쿠폰 템플릿 목록</span>
+            </div>
+            <div v-if="templateCouponList.length === 0" class="empty-state-sm">
+              등록된 쿠폰 템플릿이 없습니다.
+            </div>
+            <ul v-else class="simple-list">
+              <li v-for="coupon in templateCouponList" :key="coupon.id">
+                <span class="badge-tag pink">템플릿</span>
+                <span class="noti-title">{{ coupon.name }}</span>
+                <strong class="discount-val">{{ coupon.discountValue?.toLocaleString() }}원</strong>
+              </li>
+            </ul>
           </div>
-          <div class="card-icon-box bg-light-pink">🏪</div>
         </div>
       </div>
     </div>
 
-    <!-- [하단] 재고 신청 현황 테이블 영역 -->
-    <div class="content-section">
-      <div class="section-header">
-        <div class="section-title">
-          <h3>재고 신청 현황</h3>
-          <p class="section-subtitle">최근 신청 내역을 확인하고 승인/반려 처리하세요</p>
+    <!-- 3. 하단 2열 그리드 섹션 -->
+    <div class="widget-grid" style="margin-top: 20px;">
+      <!-- 🎁 [이벤트 / 프로모션] 위젯 -->
+      <div class="widget-card">
+        <div class="widget-header">
+          <h3>🎁 진행 중인 이벤트 및 프로모션</h3>
+          <router-link to="/event-management" class="more-link">이벤트 관리 ❯</router-link>
         </div>
-        <div class="section-actions">
-          <!-- 필터 및 검색 컨트롤 영역 -->
-          <div class="filter-wrapper">
-            <select v-model="statusFilter" @change="currentPage = 1" class="select-filter">
-              <option value="ALL">전체 상태</option>
-              <option value="PENDING">처리 대기</option>
-              <option value="SHIPPING">배송 중</option>
-              <option value="COMPLETED">완료</option>
-              <option value="REJECTED">반려</option>
-            </select>
-          </div>
-          <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input 
-              type="text" 
-              placeholder="분점명 또는 메뉴 검색..." 
-              v-model="searchQuery" 
-              @input="currentPage = 1" 
-            />
-          </div>
-          <button class="btn-submit" @click="goToOrderRequestPage">＋ 신청 등록</button>
+        <div class="widget-body">
+          <div v-if="activeEvents.length === 0" class="empty-state">진행 중인 이벤트가 없습니다.</div>
+          <ul v-else class="simple-list">
+            <li v-for="evt in activeEvents" :key="evt.id">
+              <span class="event-tag">이벤트</span>
+              <span class="event-title">{{ evt.eventName || evt.event_name || evt.title || '신규 이벤트' }}</span>
+              <span class="event-period">
+                {{ evt.startDate || evt.start_date || '' }} ~ {{ evt.endDate || evt.end_date || '' }}
+              </span>
+            </li>
+          </ul>
         </div>
       </div>
 
-      <!-- 데이터 리스트 테이블 -->
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>신청 번호</th>
-              <th>분점명</th>
-              <th>신청 메뉴</th>
-              <th>단위</th>
-              <th>신청일</th>
-              <th>상태</th>
-              <th>처리</th>
-            </tr>
-          </thead>
-          <tbody>
-            <!-- 중요: 필터링과 페이징이 가공되어 분할된 paginatedRequests 바인딩 -->
-            <tr v-for="req in paginatedRequests" :key="req.requestId">
-              <td class="req-id">#REQ-{{ req.requestId }}</td>
-              <td class="branch-name">
-                <span class="dot-indicator" :class="getDotClass(req.status)"></span>
-                {{ req.branchName }}
-              </td>
-              <td class="menu-name">{{ req.requestMenu }}</td>
-              <td class="quantity">{{ req.quantity }}개</td>
-              <td class="date">{{ req.requestDate || '2026.07.14' }}</td>
-              <td>
-                <span class="status-badge" :class="getStatusBadgeClass(req.status)">
-                  {{ req.status }}
-                </span>
-              </td>
-              <td>
-                <!-- '대기 중' / 'PENDING' / '대기중' 모두 승인/반려 버튼 노출 -->
-                <div v-if="['대기 중', '대기중', 'PENDING'].includes(req.status)" class="action-buttons">
-                  <button class="btn-approve" @click="updateStatus(req.requestId, '승인완료')">승인</button>
-                  <button class="btn-reject" @click="updateStatus(req.requestId, '반려')">반려</button>
-                </div>
-                
-                <div v-else-if="['배송 중', '배송중', 'SHIPPING'].includes(req.status)">
-                  <button class="btn-track" @click="trackDelivery(req.requestId)">📍 배송 추적</button>
-                </div>
-                
-                <div v-else>
-                  <button class="btn-detail" @click="viewDetail(req.requestId)">상세 보기</button>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="paginatedRequests.length === 0">
-              <td colspan="7" class="text-center text-muted py-5">
-                조건에 부합하는 재고 신청 내역이 없습니다.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- 테이블 하단 페이지네이션 및 정보 영역 -->
-      <div class="pagination-container" v-if="filteredRequests.length > 0">
-        <div class="pagination-info">
-          전체 {{ filteredRequests.length }}건 중 
-          {{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, filteredRequests.length) }} 표시
+      <!-- 🏪 [지점 재고 현황 요약] 위젯 -->
+      <div class="widget-card">
+        <div class="widget-header">
+          <h3>🏪 지점별 재고 현황 요약</h3>
+          <router-link to="/inventory/branch-inventory" class="more-link">지점 재고 관리 ❯</router-link>
         </div>
-        <div class="pagination-pages">
-          <button 
-            class="btn-page-nav" 
-            @click="setPage(currentPage - 1)" 
-            :disabled="currentPage === 1"
-          >
-            &lt;
-          </button>
-          
-          <button 
-            v-for="page in totalPages" 
-            :key="page" 
-            class="btn-page"
-            :class="{ active: currentPage === page }" 
-            @click="setPage(page)"
-          >
-            {{ page }}
-          </button>
-
-          <button 
-            class="btn-page-nav" 
-            @click="setPage(currentPage + 1)" 
-            :disabled="currentPage === totalPages"
-          >
-            &gt;
-          </button>
+        <div class="widget-body">
+          <div v-if="branchInventorySummary.length === 0" class="empty-state">재고 정보를 불러올 수 없습니다.</div>
+          <ul v-else class="simple-list">
+            <li v-for="inven in branchInventorySummary" :key="inven.id">
+              <span class="badge-tag gray">{{ getBranchName(inven) }}</span>
+              <span class="noti-title">{{ getItemName(inven) }} (수량: {{ getQuantity(inven) }}개)</span>
+              <span :class="['badge-tag', getQuantity(inven) < 5 ? 'red' : 'green']">
+                {{ getQuantity(inven) < 5 ? '재고 부족' : '원활' }}
+              </span>
+            </li>
+          </ul>
         </div>
       </div>
-
     </div>
+
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import axios from 'axios';
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
 
-const router = useRouter();
+const currentTime = ref(new Date().toLocaleString())
 
-// 검색 및 필터링 상태값
-const searchQuery = ref('');
-const statusFilter = ref('ALL');
+// 대시보드 리액티브 상태
+const pendingOrdersCount = ref(0)
+const shippingCount = ref(0)
+const completedDeliveryCount = ref(0)
+const totalBranchesCount = ref(0)
+const todaySales = ref(0)
 
-// 페이징 상태값
-const currentPage = ref(1);
-const itemsPerPage = 5;
+const todayNewMembers = ref(0)
+const totalMembers = ref(0)
+const activeCouponsCount = ref(0)
 
-// 1. 상단 요약 카드 모의 상태 데이터
-const summary = ref({});
+const recentOrders = ref([])
+const activeEvents = ref([])
+const branchInventorySummary = ref([])
+const templateCouponList = ref([]) // 💡 1. 선언 누락 수정
 
-// 2. 이미지 시안 기준 초기 리스트 백업용 데이터셋 (Mock)
-const requests = ref([]);
+// 헬퍼 함수
+const getBranchName = (item) => {
+  if (!item) return '지점'
+  return item.branchName || item.branch?.branchName || item.branch?.name || item.branch_name || '강남역점'
+}
 
-// 3. 백엔드 실시간 API 호출 연동 (JPA 구성 완료 시 실데이터 바인딩)
+const getItemName = (item) => {
+  if (!item) return '원자재'
+  return item.itemName || item.item?.itemName || item.item?.name || item.item_name || '원자재 아이템'
+}
+
+const getQuantity = (item) => {
+  if (!item) return 0
+  return (
+    item.requestQuantity ?? 
+    item.request_quantity ?? 
+    item.quantity ?? 
+    item.stockQuantity ??
+    item.qty ?? 
+    item.count ?? 
+    0
+  )
+}
+
 const fetchDashboardData = async () => {
   try {
-    const summaryRes = await axios.get('/api/admin/dashboard/summary');
-    summary.value = summaryRes.data;
-    
-    const requestsRes = await axios.get('/api/admin/inventory/requests');
-    requests.value = requestsRes.data;
-  } catch (error) {
-    console.log('초기 개발 단계를 위해 기존 Mock 구조화 데이터 레이아웃을 표시합니다.');
-  }
-};
+    // 💡 2. Promise.allSettled 요청과 변수 할당 개수(8개) 1:1 매칭
+    const [
+      ordersRes, 
+      branchesRes, 
+      salesRes, 
+      membersRes, 
+      couponsRes, 
+      couponTemplatesRes,
+      eventsRes, 
+      inventoryRes
+    ] = await Promise.allSettled([
+      axios.get('/api/admin/branches/orders'),   
+      axios.get('/api/admin/branches'), 
+      axios.get('/api/sales/today'), 
+      axios.get('/api/admin/members'), 
+      axios.get('/api/admin/coupons/all'), 
+      axios.get('/api/admin/coupons/templates'), // 템플릿 쿠폰 API
+      axios.get('/api/promotion'), 
+      axios.get('/api/inventory/branches')
+    ])
 
-// 4. 상태 변경 비즈니스 이벤트 (승인/반려 PATCH 요청)
-const updateStatus = async (requestId, nextStatus) => {
-  try {
-    await axios.patch(`/api/admin/inventory/requests/${requestId}/approval`, {
-      status: nextStatus,
-      hqManagerId: 'admin_hq'
-    });
-    alert(`요청이 성공적으로 변경되었습니다.`);
-    fetchDashboardData();
-  } catch (error) {
-    // 백엔드 미동작 시 화면 프론트엔드단 선반영 동작 테스트 피드백
-    const target = requests.value.find(r => r.requestId === requestId);
-    if(target) {
-      target.status = nextStatus === '승인완료' ? '배송 중' : '반려';
-    }
-  }
-};
-
-// [기능 구현] 검색어 및 셀렉트 박스 필터링 연산
-const filteredRequests = computed(() => {
-  return requests.value.filter(req => {
-    const branch = req.branchName ? req.branchName.toLowerCase() : '';
-    const menu = req.requestMenu ? req.requestMenu.toLowerCase() : '';
-    const query = searchQuery.value.toLowerCase();
-
-    // 1. 검색어 조건 (분점명 또는 메뉴)
-    const matchesSearch = branch.includes(query) || menu.includes(query);
-
-    // 2. 상태 필터 조건 (영어/한글 데이터 형태 매핑 대응)
-    let matchesStatus = false;
-    const status = req.status ? req.status.trim().toUpperCase() : '';
-
-    if (statusFilter.value === 'ALL') {
-      matchesStatus = true;
-    } else if (statusFilter.value === 'PENDING') {
-      matchesStatus = status === 'PENDING' || status === '대기중' || status === '대기 중';
-    } else if (statusFilter.value === 'SHIPPING') {
-      matchesStatus = status === 'SHIPPING' || status === '배송중' || status === '배송 중';
-    } else if (statusFilter.value === 'COMPLETED') {
-      matchesStatus = status === 'COMPLETED' || status === '완료' || status === '승인완료';
-    } else if (statusFilter.value === 'REJECTED') {
-      matchesStatus = status === 'REJECTED' || status === '반려';
+    // A. 발주 데이터
+    if (ordersRes.status === 'fulfilled' && ordersRes.value.data) {
+      const allOrders = ordersRes.value.data
+      recentOrders.value = Array.isArray(allOrders) ? allOrders.slice(0, 5) : []
+      pendingOrdersCount.value = recentOrders.value.filter(o => (o.approvalStatus || o.status) === '대기중').length
+      shippingCount.value = recentOrders.value.filter(o => (o.deliveryStatus || o.status) === '배송중').length
+      completedDeliveryCount.value = recentOrders.value.filter(o => (o.deliveryStatus || o.status) === '배송완료').length
     }
 
-    return matchesSearch && matchesStatus;
-  });
-});
+    // B. 분점 데이터
+    if (branchesRes.status === 'fulfilled' && branchesRes.value.data) {
+      totalBranchesCount.value = Array.isArray(branchesRes.value.data) ? branchesRes.value.data.length : 0
+    }
 
-// [기능 구현] 필터링 데이터를 기준으로 현재 페이지만 조각내기
-const paginatedRequests = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage;
-  const end = start + itemsPerPage;
-  return filteredRequests.value.slice(start, end);
-});
+    // C. 매출 데이터
+    if (salesRes.status === 'fulfilled' && salesRes.value.data) {
+      todaySales.value = salesRes.value.data.totalAmount || salesRes.value.data.todaySales || 0
+    }
 
-// [기능 구현] 전체 페이지 개수 연산
-const totalPages = computed(() => {
-  return Math.max(1, Math.ceil(filteredRequests.value.length / itemsPerPage));
-});
+    // D. 회원 데이터
+    if (membersRes.status === 'fulfilled' && membersRes.value.data) {
+      const memberData = membersRes.value.data
+      if (Array.isArray(memberData)) {
+        totalMembers.value = memberData.length
+      } else {
+        todayNewMembers.value = memberData.todayNewCount || 0
+        totalMembers.value = memberData.totalCount || 0
+      }
+    }
 
-// 페이지 스위칭 핸들러
-const setPage = (page) => {
-  if (page < 1 || page > totalPages.value) return;
-  currentPage.value = page;
-};
+    // E. 전체 쿠폰 개수
+    if (couponsRes.status === 'fulfilled' && couponsRes.value.data) {
+      activeCouponsCount.value = Array.isArray(couponsRes.value.data) ? couponsRes.value.data.length : 0
+    }
 
-// 버튼 인터랙션 함수 세팅
-const trackDelivery = (id) => alert(`#REQ-${id} 운송 배송 추적 모달 실행`);
-const viewDetail = (id) => alert(`#REQ-${id} 상세 영수증/명세서 확인`);
-const goToOrderRequestPage = () => router.push('branch/order-request');
-const openOrderModal = () => {
-  isOrderModalOpen.value = true; // 클릭 시 조건 없이 즉시 모달 오픈!
-};
+    // E-2. 템플릿 쿠폰 바인딩
+    if (couponTemplatesRes.status === 'fulfilled' && couponTemplatesRes.value.data) {
+      templateCouponList.value = Array.isArray(couponTemplatesRes.value.data) ? couponTemplatesRes.value.data.slice(0, 3) : []
+    }
 
-// 시안 배지 맵핑 필터 클래스 유틸리티
-const getStatusBadgeClass = (status) => {
-  switch (status) {
-    case '대기 중': case '대기중': case 'PENDING': return 'badge-waiting';
-    case '배송 중': case '배송중': case 'SHIPPING': return 'badge-shipping';
-    case '완료': case '승인완료': case 'COMPLETED': return 'badge-success';
-    case '반려': case 'REJECTED': return 'badge-rejected';
-    default: return '';
+    // F. 이벤트 데이터
+    if (eventsRes.status === 'fulfilled' && eventsRes.value.data) {
+      activeEvents.value = Array.isArray(eventsRes.value.data) ? eventsRes.value.data.slice(0, 3) : []
+    }
+
+    // G. 지점 재고 데이터
+    if (inventoryRes.status === 'fulfilled' && inventoryRes.value.data) {
+      branchInventorySummary.value = Array.isArray(inventoryRes.value.data) ? inventoryRes.value.data.slice(0, 5) : []
+    }
+
+  } catch (error) {
+    console.error('대시보드 데이터 조회 오류:', error)
   }
-};
+}
 
-const getDotClass = (status) => {
-  switch (status) {
-    case '대기 중': case '대기중': case 'PENDING': return 'dot-orange';
-    case '배송 중': case '배송중': case 'SHIPPING': return 'dot-blue';
-    case '완료': case '승인완료': case 'COMPLETED': return 'dot-green';
-    case '반려': case 'REJECTED': return 'dot-red';
-    default: return 'dot-gray';
-  }
-};
+const getStatusClass = (status) => {
+  if (status === '대기중' || status === '승인대기') return 'waiting'
+  if (status === '배송중') return 'ing'
+  if (status === '배송완료' || status === '승인완료') return 'done'
+  return ''
+}
 
-onMounted(fetchDashboardData);
+onMounted(() => {
+  fetchDashboardData()
+})
 </script>
 
 <style scoped>
-/* 🎨 UI 이미지 피드백 맞춤형 고품격 스타일 시트 스펙 */
-.dashboard-container {
-  padding: 30px;
-  background-color: #f8fafc;
-  font-family: 'Inter', sans-serif;
-}
+.dashboard-container { padding: 24px; background-color: #f8fafc; min-height: 100vh; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+.page-header h2 { font-size: 22px; font-weight: 800; color: #1e293b; margin: 0 0 4px 0; }
+.page-header p { font-size: 13px; color: #64748b; margin: 0; }
+.current-time { font-size: 12.5px; color: #64748b; background: white; padding: 6px 12px; border-radius: 20px; border: 1px solid #e2e8f0; }
 
-/* 상단 타이틀 구조 */
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 25px;
-}
-.header-title h2 {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1e293b;
-}
-.subtitle {
-  font-size: 14px;
-  color: #64748b;
-  margin-top: 4px;
-}
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.kpi-card { background: white; border-radius: 12px; padding: 18px; display: flex; align-items: center; gap: 14px; border: 1px solid #e2e8f0; text-decoration: none; transition: transform 0.2s, box-shadow 0.2s; }
+.kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 15px rgba(0, 0, 0, 0.05); }
+.kpi-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+.warning-card .kpi-icon { background: #fff7ed; }
+.blue-card .kpi-icon { background: #eff6ff; }
+.purple-card .kpi-icon { background: #f3e8ff; }
+.green-card .kpi-icon { background: #f0fdf4; }
 
-/* 상단 4단 그리드 카드 디자인 */
-.summary-cards {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  margin-bottom: 30px;
-}
-.card {
-  background: white;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  padding: 24px;
-}
-.card-body {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-.card-info {
-  display: flex;
-  flex-direction: column;
-}
-.card-label {
-  font-size: 14px;
-  color: #64748b;
-  font-weight: 500;
-}
-.card-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 6px 0;
-}
-.card-sub {
-  font-size: 13px;
-  font-weight: 500;
-}
-.card-icon-box {
-  width: 46px;
-  height: 46px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-}
+.kpi-info { display: flex; flex-direction: column; }
+.kpi-info .label { font-size: 12px; font-weight: 600; color: #64748b; }
+.value-group { display: flex; align-items: baseline; gap: 4px; margin: 2px 0; }
+.value-group .number { font-size: 22px; font-weight: 800; color: #0f172a; }
+.value-group .unit { font-size: 12px; color: #475569; }
+.sub-text { font-size: 11px; color: #64748b; }
+.sub-text.highlight { color: #ea580c; font-weight: 700; }
 
-/* 백그라운드 컴포넌트 컬러 변동 칩 */
-.bg-light-blue { background-color: #eff6ff; }
-.bg-light-yellow { background-color: #fefce8; }
-.bg-light-purple { background-color: #f5f3ff; }
-.bg-light-pink { background-color: #fdf2f8; }
+.widget-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.widget-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 18px; }
+.widget-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
+.widget-header h3 { font-size: 15px; font-weight: 800; color: #1e293b; margin: 0; }
+.more-link { font-size: 12px; color: #4f46e5; text-decoration: none; font-weight: 600; }
 
-.text-success { color: #10b981; }
-.text-warning { color: #f59e0b; }
-.text-primary { color: #3b82f6; }
+.empty-state { padding: 30px 0; text-align: center; color: #94a3b8; font-size: 13px; }
+.empty-state-sm { padding: 12px 0; text-align: center; color: #94a3b8; font-size: 12px; }
+.mini-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.mini-table th { text-align: left; padding: 6px 8px; color: #64748b; background: #f8fafc; font-weight: 600; }
+.mini-table td { padding: 8px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+.mini-table .center { text-align: center; }
 
-/* 하단 섹션 제어 헤더 */
-.content-section {
-  background: white;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  padding: 24px;
-}
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-.section-title h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #0f172a;
-}
-.section-subtitle {
-  font-size: 13px;
-  color: #64748b;
-  margin-top: 2px;
-}
-.section-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.filter-wrapper {
-  position: relative;
-}
-.select-filter {
-  background: white;
-  border: 1px solid #e2e8f0;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  color: #475569;
-  outline: none;
-}
-.search-box {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.search-icon {
-  position: absolute;
-  left: 12px;
-  color: #94a3b8;
-}
-.search-box input {
-  border: 1px solid #e2e8f0;
-  padding: 8px 12px 8px 35px;
-  border-radius: 8px;
-  font-size: 14px;
-  width: 200px;
-  outline: none;
-}
-.search-box input:focus {
-  border-color: #6f42c1;
-}
-.btn-submit {
-  background: #6f42c1;
-  color: white;
-  border: none;
-  padding: 8px 18px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
-}
+.status-badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.status-badge.waiting { background: #fff7ed; color: #c2410c; }
+.status-badge.ing { background: #eff6ff; color: #1d4ed8; }
+.status-badge.done { background: #f0fdf4; color: #15803d; }
 
-/* 데이터 테이블 스타일 스펙 */
-.table-wrapper {
-  overflow-x: auto;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th {
-  background: #f8fafc;
-  color: #64748b;
-  font-weight: 600;
-  font-size: 13px;
-  padding: 14px 16px;
-  text-align: left;
-  border-bottom: 1px solid #edf2f7;
-}
-td {
-  padding: 16px;
-  font-size: 14px;
-  color: #334155;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
-}
-.req-id { color: #64748b; font-weight: 500; }
-.branch-name { font-weight: 600; display: flex; align-items: center; gap: 8px; }
-.menu-name { font-weight: 500; }
+.link-btn { font-size: 11px; color: #2563eb; text-decoration: underline; }
 
-/* 지점 도트 색상 플래그 */
-.dot-indicator { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.dot-orange { background-color: #f59e0b; }
-.dot-blue { background-color: #3b82f6; }
-.dot-green { background-color: #10b981; }
-.dot-red { background-color: #ef4444; }
-.dot-gray { background-color: #94a3b8; }
+.stat-dual-box { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat-sub-card { background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 6px; }
+.stat-title { font-size: 12px; color: #64748b; font-weight: 600; }
+.stat-val { font-size: 20px; font-weight: 800; color: #1e293b; }
+.stat-desc { font-size: 11px; color: #94a3b8; }
+.inner-link { font-size: 11px; color: #4f46e5; text-decoration: none; margin-top: 4px; }
 
-/* 상태 배지 스타일 */
-.status-badge {
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.badge-waiting { background-color: #fffbeb; color: #d97706; }
-.badge-shipping { background-color: #eff6ff; color: #2563eb; }
-.badge-success { background-color: #ecfdf5; color: #059669; }
-.badge-rejected { background-color: #fef2f2; color: #dc2626; }
+/* 💡 [신규 스타일] 템플릿 쿠폰 위젯 영역 */
+.template-coupon-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid #f1f5f9; }
+.sub-widget-header { margin-bottom: 8px; }
+.sub-title { font-size: 12px; font-weight: 700; color: #475569; }
+.badge-tag.pink { background: #fce7f3; color: #db2777; }
+.discount-val { font-size: 12px; color: #d13b7d; font-weight: 700; }
 
-/* 액션 코어 버튼 모음 */
-.action-buttons { display: flex; gap: 6px; }
-.btn-approve { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-.btn-reject { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-.btn-track { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
-.btn-detail { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.simple-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.simple-list li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.event-tag { background: #fce7f3; color: #be185d; font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+.event-title { text-align: center; flex: 1; color: #334155; }
+.event-period { font-size: 11px; color: #94a3b8; }
 
-/* 하단 페이지네이션 구조 */
-.pagination-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 25px;
-  padding-top: 15px;
-  border-top: 1px solid #f1f5f9;
-}
-.pagination-info { font-size: 13px; color: #64748b; }
-.pagination-pages { display: flex; align-items: center; gap: 6px; }
-.btn-page {
-  background: white;
-  border: 1px solid #e2e8f0;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 500;
-  color: #475569;
-}
-.btn-page.active {
-  background: #6f42c1;
-  color: white;
-  border-color: #6f42c1;
-}
-.btn-page:disabled, .btn-page-nav:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.btn-page-nav {
-  background: white;
-  border: 1px solid #e2e8f0;
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  color: #64748b;
-}
-.text-center { text-align: center; }
-.py-5 { padding-top: 3rem; padding-bottom: 3rem; }
-.text-muted { color: #94a3b8; }
+.badge-tag { font-size: 10.5px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+.badge-tag.red { background: #fef2f2; color: #dc2626; }
+.badge-tag.green { background: #f0fdf4; color: #16a34a; }
+.badge-tag.gray { background: #f1f5f9; color: #475569; }
+.noti-title { flex: 1; color: #334155; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
