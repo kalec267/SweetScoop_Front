@@ -316,69 +316,241 @@
     };
 
     const saveOrderData = () => {
-        const savedOrder = sessionStorage.getItem("orderData");
+    let orderData;
 
-        const orderData = savedOrder
+    try {
+        const savedOrder =
+            sessionStorage.getItem("orderData");
+
+        orderData = savedOrder
             ? JSON.parse(savedOrder)
-            : {
-                orderType,
-                customerId: null,
-                branchId: 1,
-                kioskId: 1,
-                iceCream: null,
-                mochi: [],
-                coffee: []
-            };
+            : {};
+    } catch (error) {
+        console.error(
+            "기존 주문 데이터 파싱 실패:",
+            error
+        );
 
-        /*
-     * 현재 선택한 메뉴들을 카테고리별로 구분
+        orderData = {};
+    }
+
+    const iceCreamMenus =
+        selectedMenusByCategory.value[1] || [];
+
+    const mochiMenus =
+        selectedMenusByCategory.value[2] || [];
+
+    const coffeeMenus =
+        selectedMenusByCategory.value[3] || [];
+
+    /*
+     * 공통 주문 정보
      */
-        orderData.mochi = selectedMenusByCategory
-            .value[2]
-            .map(item => ({
-                menuId: Number(item.menuId || item.id),
+    orderData.orderType =
+        orderType ||
+        orderData.orderType ||
+        "TAKEOUT";
 
-                name: item.name,
-                menuImg: item.menuImg,
+    orderData.customerId =
+        orderData.customerId ?? null;
 
-                price: Number(item.price) || 0,
+    orderData.branchId =
+        orderData.branchId ?? 1;
 
-                totalPrice: Number(item.totalPrice) || Number(item.price) || 0,
+    orderData.kioskId =
+        orderData.kioskId ?? 1;
 
-                options: item.options || []
-            }));
+    /*
+     * 아이스크림 주문 저장
+     *
+     * 아이스크림 화면이며
+     * sizeId가 있고 맛이 선택된 경우에만 생성
+     */
+    if (
+        Number(selectedCategory.value) === 1 &&
+        sizeId &&
+        iceCreamMenus.length > 0
+    ) {
+        orderData.iceCream = {
+            productType: "ICE_CREAM",
 
-        orderData.coffee = selectedMenusByCategory
-            .value[3]
-            .map(item => ({
-                menuId: Number(item.menuId || item.id),
-
-                name: item.name,
-                menuImg: item.menuImg,
-
-                price: Number(item.price) || 0,
-
-                sizeId: item.sizeId != null
-                    ? Number(item.sizeId)
+            cupId:
+                cupId != null
+                    ? Number(cupId)
                     : null,
 
-                sizeName: item.sizeName || null,
+            cupName:
+                selectedCup.value?.name ||
+                null,
 
-                sizeAdditionalPrice: Number(item.sizeAdditionalPrice) || 0,
+            sizeId:
+                Number(sizeId),
 
-                optionPrice: Number(item.optionPrice) || 0,
+            sizeName:
+                sizeInfo.value?.name ||
+                null,
 
-                totalPrice: Number(item.totalPrice) || (
-                    Number(item.price || 0) + Number(item.sizeAdditionalPrice || 0) + Number(item.optionPrice || 0)
-                ),
+            flavorCnt:
+                Number(
+                    sizeInfo.value?.flavorCnt
+                ) || iceCreamMenus.length,
 
-                options: item.options || []
-            }));
+            quantity: 1,
 
-        sessionStorage.setItem("orderData", JSON.stringify(orderData));
+            basePrice:
+                Number(
+                    sizeInfo.value?.price
+                ) || 0,
 
-        console.log("저장된 주문 JSON:", orderData);
-    };
+            additionalPrice:
+                Number(
+                    selectedCup.value
+                        ?.additionalPrice
+                ) || 0,
+
+            totalPrice:
+                Number(totalPrice.value) || 0,
+
+            flavors:
+                iceCreamMenus.map(
+                    (menu) => ({
+                        menuId:
+                            Number(
+                                menu.menuId ||
+                                menu.id
+                            ),
+
+                        name:
+                            menu.name,
+
+                        menuImg:
+                            menu.menuImg ||
+                            null
+                    })
+                )
+        };
+    }
+
+    /*
+     * 아이스모찌 저장
+     */
+    orderData.mochi =
+        mochiMenus.map(
+            (item) => ({
+                menuId:
+                    Number(
+                        item.menuId ||
+                        item.id
+                    ),
+
+                name:
+                    item.name,
+
+                menuImg:
+                    item.menuImg ||
+                    null,
+
+                price:
+                    Number(item.price) || 0,
+
+                totalPrice:
+                    Number(
+                        item.totalPrice
+                    ) ||
+                    Number(item.price) ||
+                    0,
+
+                quantity:
+                    Number(item.quantity) || 1,
+
+                options:
+                    Array.isArray(
+                        item.options
+                    )
+                        ? item.options
+                        : []
+            })
+        );
+
+    /*
+     * 커피 저장
+     */
+    orderData.coffee =
+        coffeeMenus.map(
+            (item) => ({
+                menuId:
+                    Number(
+                        item.menuId ||
+                        item.id
+                    ),
+
+                name:
+                    item.name,
+
+                menuImg:
+                    item.menuImg ||
+                    null,
+
+                price:
+                    Number(item.price) || 0,
+
+                sizeId:
+                    item.sizeId != null
+                        ? Number(item.sizeId)
+                        : null,
+
+                sizeName:
+                    item.sizeName ||
+                    null,
+
+                sizeAdditionalPrice:
+                    Number(
+                        item.sizeAdditionalPrice
+                    ) || 0,
+
+                optionPrice:
+                    Number(
+                        item.optionPrice
+                    ) || 0,
+
+                totalPrice:
+                    Number(
+                        item.totalPrice
+                    ) ||
+                    (
+                        Number(
+                            item.price
+                        ) +
+                        Number(
+                            item.sizeAdditionalPrice
+                        ) +
+                        Number(
+                            item.optionPrice
+                        )
+                    ),
+
+                quantity:
+                    Number(item.quantity) || 1,
+
+                options:
+                    Array.isArray(
+                        item.options
+                    )
+                        ? item.options
+                        : []
+            })
+        );
+
+    sessionStorage.setItem(
+        "orderData",
+        JSON.stringify(orderData)
+    );
+
+    console.log(
+        "저장된 주문 JSON:",
+        orderData
+    );
+};
 
     const restoreSavedSelections = () => {
         /*
@@ -534,25 +706,36 @@
     };
 
     const handleMenuClick = (menu) => {
+        const menuCategoryId = Number(menu.categoryId);
+
         /*
          * 커피는 같은 메뉴라도 사이즈와 옵션을 다르게 하여
          * 여러 잔 추가할 수 있으므로 항상 옵션창을 연다.
          */
-        if (Number(menu.categoryId) === 3) {
+        if (menuCategoryId === 3) {
             openCoffeeOptionModal(menu);
             return;
         }
 
-        const index = selectedMenus
-            .value
-            .findIndex(item => Number(item.id) === Number(menu.id));
+        /*
+         * 아이스크림은 같은 맛을 여러 번 선택할 수 있다.
+         * 메뉴 카드를 다시 눌러도 삭제하지 않고 새 슬롯에 추가한다.
+         * 삭제는 하단의 선택 슬롯을 눌렀을 때만 처리한다.
+         */
+        if (menuCategoryId === 1) {
+            addMenuWithoutOption(menu);
+            return;
+        }
 
         /*
-         * 아이스크림과 아이스모찌는 같은 메뉴를 다시 누르면 제거
+         * 아이스모찌는 기존 방식대로 같은 상품을 다시 누르면 선택 취소한다.
          */
+        const index = selectedMenus.value.findIndex(
+            item => Number(item.id) === Number(menu.id)
+        );
+
         if (index !== -1) {
             removeSelectedMenu(index);
-            saveOrderData();
             return;
         }
 
@@ -584,34 +767,11 @@
         saveOrderData();
     };
 
+    /*
+     * 기존 selectMenu 호출이 남아 있어도 동일한 선택 규칙을 사용하도록 통일한다.
+     */
     const selectMenu = (menu) => {
-        const index = selectedMenus
-            .value
-            .findIndex(item => item.id === menu.id);
-
-        // 같은 메뉴를 다시 클릭하면 제거
-        if (index !== -1) {
-            selectedMenus
-                .value
-                .splice(index, 1);
-            return;
-        }
-
-        // 아이스크림만 사이즈별 맛 개수 제한
-        if (selectedCategory.value === 1) {
-            const maxFlavorCount = Number(sizeInfo.value.flavorCnt) || 0;
-
-            if (selectedMenus.value.length >= maxFlavorCount) {
-                alert(`최대 ${maxFlavorCount}개의 맛만 선택할 수 있습니다.`);
-
-                return;
-            }
-        }
-
-        // 아이스모찌와 커피는 제한 없이 추가
-        selectedMenus
-            .value
-            .push(menu);
+        handleMenuClick(menu);
     };
 
     const isSelected = (id) => {
@@ -625,9 +785,16 @@
             return;
         }
 
-        selectedMenus
-            .value
-            .splice(index, 1);
+        /*
+         * 하단 선택 슬롯에서 누른 항목 하나만 삭제한다.
+         * 같은 맛이 여러 개여도 해당 슬롯의 맛만 제거된다.
+         */
+        selectedMenus.value.splice(index, 1);
+
+        /*
+         * 화면 상태와 sessionStorage의 JSON을 즉시 동기화한다.
+         */
+        saveOrderData();
     };
 
     /*커피 옵션 처리*/
@@ -1121,7 +1288,11 @@
             }}
                 </strong>
 
-                <p>
+                <p v-if="selectedCategory === 1">
+                    같은 맛을 여러 번 선택할 수 있습니다. 삭제는 아래 선택 내역을 눌러주세요.
+                </p>
+
+                <p v-else>
                     선택한 상품을 다시 누르면 취소됩니다.
                 </p>
             </div>
@@ -1170,7 +1341,7 @@
             </div>
 
             <p>
-                선택한 상품을 누르면 목록에서 제거됩니다.
+                하단의 선택한 메뉴를 누르면 해당 항목이 제거됩니다.
             </p>
         </section>
 
