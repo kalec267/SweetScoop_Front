@@ -50,6 +50,9 @@
           <router-link to="/inquiries" class="menu-item" active-class="active">
             <span class="menu-icon">💬</span> 지점문의 답변
           </router-link>
+          <router-link to="/notice" class="menu-item" active-class="active">
+            <span class="menu-icon">📢</span> 공지사항
+          </router-link>
         </div>
       </div>
 

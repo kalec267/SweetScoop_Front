@@ -188,8 +188,9 @@
   v-if="promotionForm.imageUrl"
   :src="promotionForm.imageUrl"
   style="
-    width:100px;
+    width:40px;
     margin-top:10px;
+    height:60px;
     border-radius:10px;
   "
 />
@@ -355,7 +356,7 @@ const submitPromotion = async () => {
     }
 
     await loadPromotion()
-
+  alert(isEditMode.value ? "수정되었습니다." : "등록되었습니다.")
     isModalOpen.value = false
 }
 
@@ -614,8 +615,8 @@ white-space: nowrap;}
 
 
 .image-item img{
-  width:90px;
-  height:70px;
+  width:0px;
+  height:0px;
   object-fit:cover;
 }
 
