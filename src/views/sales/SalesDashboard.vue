@@ -63,6 +63,17 @@
         </div>
       </div>
 
+      <!-- 2. 순이익  -->
+      <div class="stat-card">
+        <div class="card-title">추정 순이익</div>
+        <div class="card-value-group">
+          <div class="card-value" style="color: #10b981;">₩ {{ formatNumber(stats.netProfit) }}</div>
+          <div class="growth-badge up" style="background-color: #f0fdf4; color: #15803d;">
+            <span>원가 차감 후</span>
+          </div>
+        </div>
+      </div>
+
       <div class="stat-card">
         <div class="card-title">평균 객단가</div>
         <div class="card-value-group">
@@ -74,6 +85,16 @@
             :class="{ up: stats.growthReceiptRate >= 0, down: stats.growthReceiptRate < 0 }"
           >
             <span>{{ stats.growthReceiptRate >= 0 ? '▲' : '▼' }} {{ Math.abs(stats.growthReceiptRate) }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="card-title">순이익률 (마진율)</div>
+        <div class="card-value-group">
+          <div class="card-value" style="color: #6366f1;">{{ stats.profitMargin || 0 }} %</div>
+          <div class="growth-badge" style="background-color: #e0e7ff; color: #4338ca;">
+            <span>매출 대비</span>
           </div>
         </div>
       </div>
@@ -190,6 +211,8 @@ export default {
       stats: {
         cumulativeSales: 0,
         averageReceipt: 0,
+        netProfit: 0,
+        profitMargin: 0,
         growthSalesRate: 0,
         growthReceiptRate: 0,
         periodTrends: [],
@@ -403,7 +426,7 @@ export default {
 .filter-tabs button:hover { background-color: #f8fafc; border-color: #94a3b8; }
 .filter-tabs button.active { background-color: #6366f1; color: #fff; border-color: #6366f1; font-weight: 600; }
 
-.card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
+.card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
 .stat-card { background-color: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .card-title { color: #64748b; font-size: 14px; margin-bottom: 8px; }
 .card-value { font-size: 24px; font-weight: 700; color: #1e293b; }
