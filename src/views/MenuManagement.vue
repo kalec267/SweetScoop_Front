@@ -7,6 +7,18 @@
       </div>
       <button class="btn-primary" @click="openCreateModal">＋ 신규 맛 등록</button>
     </div>
+
+    <!-- 카테고리 필터 탭 영역 -->
+    <div class="category-filter-bar">
+      <button 
+        v-for="cat in categoryOptions" 
+        :key="cat.id" 
+        :class="['filter-btn', { active: selectedCategory === cat.id }]"
+        @click="changeCategory(cat.id)"
+      >
+        {{ cat.name }}
+      </button>
+    </div>
   
     <!-- 메뉴 리스트 테이블 -->
     <div class="table-wrapper">
@@ -22,7 +34,6 @@
           </tr>
         </thead>
         <tbody>
-          <!-- paginatedMenus 구조 정상 연동 -->
           <tr v-for="menu in paginatedMenus" :key="menu.id">
             <td>#MENU-{{ menu.id }}</td>
             <td><span class="category-tag">{{ getCategoryName(menu.categoryId) }}</span></td>
@@ -35,26 +46,33 @@
             <td>
               <div class="btn-group">
                 <button class="btn-edit" @click="openEditModal(menu)">수정</button>
-                <button class="btn-price" @click="openPriceModal(menu)">가격변경</button>
-                <!-- 버그 수정: handleDelete 로 명칭 통일 -->
+
+                <!-- 아이스크림(categoryId === 1)이 아닐 때만 가격변경 버튼 노출 -->
+                <button 
+                  v-if="Number(menu.categoryId) !== 1" 
+                  class="btn-price" 
+                  @click="openPriceModal(menu)"
+                >
+                  가격변경
+                </button>
+
                 <button class="btn-delete" @click="handleDelete(menu.id)">삭제</button>
               </div>
             </td>
           </tr>
           
-          <!-- 데이터가 하나도 없을 때 처리 -->
           <tr v-if="paginatedMenus.length === 0">
-            <td colspan="6" class="text-center py-5 text-muted">등록된 메뉴가 없습니다.</td>
+            <td colspan="6" class="text-center py-5 text-muted">해당 카테고리에 등록된 메뉴가 없습니다.</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- 하단 페이지네이션 컴포넌트 추가 -->
-    <div class="pagination-container" v-if="menus.length > 0">
+    <!-- 하단 페이지네이션 컴포넌트 -->
+    <div class="pagination-container" v-if="filteredMenus.length > 0">
       <div class="pagination-info">
-        전체 {{ menus.length }}개 항목 중 
-        {{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, menus.length) }} 표시
+        전체 {{ filteredMenus.length }}개 항목 중 
+        {{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, filteredMenus.length) }} 표시
       </div>
       <div class="pagination-pages">
         <button class="btn-page-nav" @click="setPage(currentPage - 1)" :disabled="currentPage === 1">&lt;</button>
@@ -76,7 +94,7 @@
     <!-- 1. 등록 / 수정 팝업 모달 -->
     <div v-if="isModalOpen" class="modal-overlay">
       <div class="modal-content">
-        <h3>{{ isEditMode ? '맛 정보 수정' : '신규 맛 등록' }}</h3>
+        <h3>{{ isEditMode ? '맛/메뉴 정보 수정' : '신규 맛/메뉴 등록' }}</h3>
         
         <div class="form-group">
           <label>카테고리 선택</label>
@@ -96,6 +114,12 @@
           <label>메뉴/맛 이름</label>
           <input type="text" v-model="menuForm.name" placeholder="예: 엄마는 외계인" />
         </div>
+
+        <!-- 💡 핵심 추가: 아이스크림(categoryId === 1)이 아닐 때만 가격 입력 필드 노출 -->
+        <div class="form-group" v-if="Number(menuForm.categoryId) !== 1">
+          <label>메뉴 단가 (원)</label>
+          <input type="number" v-model.number="menuForm.price" placeholder="판매 가격 입력 (예: 3500)" />
+        </div>
   
         <div class="form-group">
           <label>메뉴 이미지 URL</label>
@@ -109,24 +133,14 @@
       </div>
     </div>
   
-    <!-- 2. 가격 변경 전용 팝업 모달 -->
+    <!-- 2. 가격 변경 전용 팝업 모달 (아이스모찌, 음료 전용) -->
     <div v-if="isPriceModalOpen" class="modal-overlay">
       <div class="modal-content">
-        <h3>[{{ targetMenu.name }}] 사이즈별 가격 변경</h3>
-        <p class="modal-subtitle">변경할 스펙 규격(SIZE)의 가격을 입력하세요.</p>
+        <h3>[{{ targetMenu.name }}] 가격 변경</h3>
+        <p class="modal-subtitle">변경할 메뉴의 단가를 입력하세요.</p>
         
         <div class="form-group">
-          <label>사이즈 규격 선택 (SIZE ID)</label>
-          <select v-model="priceForm.sizeId">
-            <option :value="1">싱글 레귤러 (ID: 1)</option>
-            <option :value="6">파인트 (ID: 6)</option>
-            <option :value="7">쿼터 (ID: 7)</option>
-          </select>
-        </div>
-  
-        <div class="form-group">
           <label>변경할 가격 (원)</label>
-          <!-- v-model을 v-model.number로 변경 -->
           <input type="number" v-model.number="priceForm.price" placeholder="금액 입력" />
         </div>
   
@@ -141,7 +155,7 @@
   
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import axios from 'axios'; // 👈 핵심 버그 1 수정: axios 임포트 추가
+import axios from 'axios';
 import { createAdminMenu, updateAdminMenu, updateSizePrice, deleteAdminMenu } from '../api/menu';
   
 // 상태 관리 정의
@@ -151,8 +165,16 @@ const isEditMode = ref(false);
 const selectedMenuId = ref(null);
 const targetMenu = ref({});
   
-// 폼 데이터 바인딩 객체
-const menuForm = ref({ categoryId: 1, itemId: 1, name: '', menuImg: '' });
+// 카테고리 필터 관련 상태값 (ALL: 전체)
+const selectedCategory = ref(1);
+const categoryOptions = [
+  { id: 1, name: '아이스크림' },
+  { id: 2, name: '아이스모찌' },
+  { id: 3, name: '음료' }
+];
+
+// 폼 데이터 바인딩 객체 (price 기본값 추가)
+const menuForm = ref({ categoryId: 1, itemId: 1, name: '', price: 0, menuImg: '' });
 const priceForm = ref({ sizeId: 1, price: 0 });
   
 // 1. 맛 목록 조회 연동 (GET)
@@ -160,19 +182,33 @@ const menus = ref([]);
 
 // 페이징 관련 상태값
 const currentPage = ref(1);
-const itemsPerPage = 5; // 한 페이지에 맛 5개씩 노출
+const itemsPerPage = 5;
 
-// [페이징 가공] 전체 메뉴를 한 페이지 분량씩 쪼개기
+// [카테고리 필터링된 메뉴 목록]
+const filteredMenus = computed(() => {
+  if (selectedCategory.value === 'ALL') {
+    return menus.value;
+  }
+  return menus.value.filter(m => Number(m.categoryId) === Number(selectedCategory.value));
+});
+
+// [페이징 가공]
 const paginatedMenus = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage;
   const end = start + itemsPerPage;
-  return menus.value.slice(start, end);
+  return filteredMenus.value.slice(start, end);
 });
 
 // [전체 페이지 수 계산]
 const totalPages = computed(() => {
-  return Math.max(1, Math.ceil(menus.value.length / itemsPerPage));
+  return Math.max(1, Math.ceil(filteredMenus.value.length / itemsPerPage));
 });
+
+// [카테고리 변경 핸들러]
+const changeCategory = (catId) => {
+  selectedCategory.value = catId;
+  currentPage.value = 1;
+};
 
 // [페이지 전환 핸들러]
 const setPage = (page) => {
@@ -189,59 +225,62 @@ const fetchMenus = async () => {
   }
 };
   
-// 2. 맛 등록 및 수정 분기 처리 (POST / PUT)
+// 2. 맛/메뉴 등록 및 수정 분기 처리
 const submitMenuForm = async () => {
   try {
+    // 아이스크림일 경우 가격을 0으로 초기화하여 백엔드에 전송
+    const payload = { ...menuForm.value };
+    if (Number(payload.categoryId) === 1) {
+      delete payload.price; // 또는 payload.price = 0;
+    }
+
     if (isEditMode.value) {
-      await updateAdminMenu(selectedMenuId.value, menuForm.value);
-      alert("맛 정보가 성공적으로 수정되었습니다.");
+      await updateAdminMenu(selectedMenuId.value, payload);
+      alert("맛/메뉴 정보가 성공적으로 수정되었습니다.");
     } else {
-      await createAdminMenu(menuForm.value);
-      alert("신규 맛이 성공적으로 등록되었습니다.");
+      await createAdminMenu(payload);
+      alert("신규 맛/메뉴가 성공적으로 등록되었습니다.");
     }
     closeModal();
     fetchMenus();
-    currentPage.value = 1; // 연산 완료 후 리스트 첫 페이지 이동
+    currentPage.value = 1;
   } catch (err) {
     alert("처리 중 에러가 발생했습니다.");
   }
 };
   
-// 3. 가격 변경 처리 (PATCH)
+// 3. 가격 변경 처리
 const submitPriceUpdate = async () => {
   try {
-    // targetMenu.value.id (선택한 메뉴의 PK)를 첫 번째 인자로 전달
     await updateSizePrice(targetMenu.value.id, { 
       price: Number(priceForm.value.price) 
     });
     
     alert("가격이 성공적으로 변경되었습니다.");
     closePriceModal();
-    fetchMenus(); // 변경 후 목록 새로고침
+    fetchMenus();
   } catch (err) {
-    console.error("에러 객체:", err);
-    console.error("에러 메시지:", err.message);
     alert("가격 변경 실패");
   }
 };
   
-// 4. 맛 삭제 처리 (DELETE) - 버그 수정: 함수명을 마크업에 맞게 'handleDelete'로 통일
+// 4. 맛/메뉴 삭제 처리
 const handleDelete = async (id) => {
   if (!confirm("정말 이 메뉴를 삭제하시겠습니까? 관련 데이터에 영향을 줄 수 있습니다.")) return;
   try {
     await deleteAdminMenu(id);
     alert("메뉴가 성공적으로 삭제되었습니다.");
     fetchMenus();
-    currentPage.value = 1; // 삭제 완료 후 첫 페이지로 회귀
+    currentPage.value = 1;
   } catch (err) {
     alert("삭제 실패");
   }
 };
   
-// 모달 창 제어 유틸리티 함수들
+// 모달 제어 함수
 const openCreateModal = () => {
   isEditMode.value = false;
-  menuForm.value = { categoryId: 1, itemId: 1, name: '', menuImg: '' };
+  menuForm.value = { categoryId: 1, itemId: 1, name: '', price: 0, menuImg: '' };
   isModalOpen.value = true;
 };
   
@@ -249,13 +288,13 @@ const openEditModal = (menu) => {
   isEditMode.value = true;
   selectedMenuId.value = menu.id;
 
-  // 💡 백엔드가 주는 JSON 키값 중 존재하는 것을 알아서 선택합니다.
   const resolvedItemId = menu.itemId || menu.item_id || menu.item_Id || '';
 
   menuForm.value = {
     categoryId: menu.categoryId ? Number(menu.categoryId) : 1, 
     itemId: resolvedItemId, 
     name: menu.name || '',
+    price: menu.price ? Number(menu.price) : 0,
     menuImg: menu.menuImg || ''
   };
 
@@ -265,7 +304,6 @@ const openEditModal = (menu) => {
 const closeModal = () => isModalOpen.value = false;
   
 const openPriceModal = (menu) => {
-  console.log("선택된 메뉴 데이터:", menu); // 👈 F12 개발자 도구 콘솔에서 price 필드가 들어있는지 확인!
   targetMenu.value = menu;
   priceForm.value = { 
     sizeId: 1, 
@@ -276,9 +314,8 @@ const openPriceModal = (menu) => {
   
 const closePriceModal = () => isPriceModalOpen.value = false;
 
-// ID 기반 카테고리 텍스트 변환 파이프 유틸리티
 const getCategoryName = (id) => {
-  switch (id) {
+  switch (Number(id)) {
     case 1: return '아이스크림';
     case 2: return '아이스모찌';
     case 3: return '음료';
@@ -290,15 +327,35 @@ onMounted(fetchMenus);
 </script>
   
 <style scoped>
-/* 맛 관리 전용 스타일 스펙 */
 .menu-management-container { padding: 20px; }
-.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .subtitle { font-size: 14px; color: #64748b; margin-top: 4px; }
+
+/* 카테고리 필터 버튼 스타일 */
+.category-filter-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+.filter-btn {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.filter-btn:hover { background: #f1f5f9; }
+.filter-btn.active {
+  background: #6f42c1;
+  color: white;
+  border-color: #6f42c1;
+}
+
 .table-wrapper { background: white; border-radius: 12px; border: 1px solid #e2e8f0; padding: 16px; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th { background: #f8fafc; padding: 12px; font-size: 13px; color: #64748b; text-align: left; border-bottom: 1px solid #edf2f7; }
 td { padding: 14px 12px; font-size: 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-.item-id-cell { vertical-align: middle; /* 테이블 셀 기준 세로 가운데 정렬 */font-weight: 500;color: #334155; }
+.item-id-cell { vertical-align: middle; font-weight: 500; color: #334155; }
 .menu-name { font-weight: 600; color: #1e293b; }
 .menu-thumb { width: 45px; height: 45px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0; }
 .category-tag { background: #f5f3ff; color: #6f42c1; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
@@ -318,7 +375,7 @@ td { padding: 14px 12px; font-size: 14px; border-bottom: 1px solid #f1f5f9; vert
 .form-group input, .form-group select { padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
-/* 하단 페이지네이션 구조 */
+/* 하단 페이지네이션 */
 .pagination-container {
   display: flex;
   justify-content: space-between;
