@@ -17,9 +17,12 @@
           </option>
         </select>
       </div>
+
+      <!-- 추가: 본사 재고 신청 버튼 -->
+      <button class="btn-order" @click="openOrderModal">＋ 본사 재고 신청 (발주)</button>
     </div>
 
-    <!-- 2. 상단 요약 요약 카드 2개 (재고 부족 경고 품목 / 정상 운영 품목) -->
+    <!-- 2. 상단 요약 카드 2개 -->
     <div class="summary-cards">
       <div class="summary-card danger-card">
         <span class="card-label">재고 부족 경고 품목</span>
@@ -89,6 +92,33 @@
         </tbody>
       </table>
     </div>
+
+    <!-- 4. 추가: 본사 신규 발주 모달 -->
+    <div v-if="isOrderModalOpen" class="modal-overlay" @click.self="closeOrderModal">
+      <div class="modal-content">
+        <h3>본사 재고 신청</h3>
+        <p class="modal-desc">필요한 벌크 원자재 물품과 신청 수량을 입력하세요.</p>
+
+        <div class="form-group">
+          <label>신청 물품 선택</label>
+          <select v-model="orderForm.itemId">
+            <option v-for="item in inventoryList" :key="item.itemId" :value="item.itemId">
+              {{ item.itemName }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>신청 수량 (개/Box)</label>
+          <input type="number" v-model="orderForm.quantity" min="1" placeholder="수량 입력"/>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-cancel" @click="closeOrderModal">취소</button>
+          <button class="btn-submit" @click="submitOrder">신청 완료</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -103,15 +133,20 @@ export default {
       myBranchId: Number(localStorage.getItem('branchId')) || 1,
       selectedBranchId: null,
       branchList: [],
-      inventoryList: []
+      inventoryList: [],
+      
+      // 모달 조작 상태 데이터 추가
+      isOrderModalOpen: false,
+      orderForm: {
+        itemId: null,
+        quantity: 1
+      }
     };
   },
   computed: {
-    // 경고 건수 자동 계산
     warningCount() {
       return this.inventoryList.filter(item => item.stockLevel < this.getThreshold(item)).length;
     },
-    // 정상 건수 자동 계산
     normalCount() {
       return this.inventoryList.filter(item => item.stockLevel >= this.getThreshold(item)).length;
     },
@@ -123,7 +158,6 @@ export default {
   async mounted() {
     await this.fetchBranchList();
     
-    // 지점 관리자는 본인 지점 고정, 본사 관리자는 첫 번째 지점 기본 선택
     if (this.userRole === 'BRANCH') {
       this.selectedBranchId = this.myBranchId;
     } else if (this.branchList.length > 0) {
@@ -133,7 +167,6 @@ export default {
     this.fetchInventoryData();
   },
   methods: {
-    // 1. 지점 목록 로드
     async fetchBranchList() {
       try {
         const response = await api.get('/api/inventory/branches');
@@ -145,7 +178,6 @@ export default {
       }
     },
 
-    // 2. 실시간 재고 데이터 로드
     async fetchInventoryData() {
       if (!this.selectedBranchId) return;
       try {
@@ -162,7 +194,6 @@ export default {
       return item.unit === 2 ? 50 : 5000;
     },
 
-    // 3. 수동/대행 발주 신청 (params 방식)
     async openRequestModal(item) {
       const isMochi = item.unit === 2;
       const unitText = isMochi ? '개' : 'g';
@@ -189,6 +220,46 @@ export default {
         }
       } catch (error) {
         alert("발주 신청 처리 중 오류가 발생했습니다.");
+      }
+    },
+
+    // --- 추가: 본사 재고 신청 모달 관련 함수 ---
+    openOrderModal() {
+      this.orderForm = {
+        itemId: this.inventoryList[0]?.itemId || null,
+        quantity: 1
+      };
+      this.isOrderModalOpen = true;
+    },
+
+    closeOrderModal() {
+      this.isOrderModalOpen = false;
+    },
+
+    async submitOrder() {
+      if (!this.orderForm.itemId) {
+        alert("신청할 물품을 선택해주세요.");
+        return;
+      }
+      if (!this.orderForm.quantity || this.orderForm.quantity < 1) {
+        alert("올바른 수량을 입력해주세요.");
+        return;
+      }
+
+      try {
+        const payload = {
+          branchId: this.selectedBranchId,
+          itemId: this.orderForm.itemId,
+          quantity: Number(this.orderForm.quantity)
+        };
+
+        await api.post('/api/admin/branches/orders', payload);
+        alert("본사로 재고 신청이 전달되었습니다.");
+        this.closeOrderModal();
+        this.fetchInventoryData(); // 재고 현황 갱신
+      } catch (error) {
+        console.error("본사 발주 신청 실패:", error);
+        alert("본사 발주 신청 처리 중 에러가 발생했습니다.");
       }
     }
   }
@@ -230,15 +301,20 @@ export default {
   color: #334155;
   background: white;
 }
-.btn-refresh {
-  padding: 8px 16px;
-  background: white;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #475569;
+
+/* 추가: 본사 재고 신청 버튼 스타일 */
+.btn-order {
+  background: #d13b7d;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-order:hover {
+  background: #b82e6b;
 }
 
 /* 상단 요약 카드 */
@@ -269,7 +345,7 @@ export default {
 .danger-text { color: #ef4444; }
 .success-text { color: #10b981; }
 
-/* 메인 테이블 메인 카나 */
+/* 메인 테이블 카드 */
 .table-card {
   background: white;
   border: 1px solid #e2e8f0;
@@ -320,7 +396,7 @@ export default {
   color: #0f172a;
 }
 
-/* 상태 알약 (안정 / 부족) */
+/* 상태 알약 */
 .status-pill {
   padding: 3px 10px;
   border-radius: 12px;
@@ -331,7 +407,7 @@ export default {
 .pill-ok { background: #059669; }
 .pill-danger { background: #dc2626; }
 
-/* 수동 신청 보라색/보라파랑 버튼 */
+/* 버튼 스타일 */
 .btn-request-purple {
   background: #6366f1;
   color: white;
@@ -351,5 +427,79 @@ export default {
   text-align: center;
   color: #94a3b8;
   padding: 50px;
+}
+
+/* --- 추가: 신규 발주 모달 CSS --- */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.modal-content {
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  width: 400px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+.modal-content h3 {
+  margin-top: 0;
+  font-size: 18px;
+  color: #0f172a;
+  font-weight: 700;
+}
+.modal-desc {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-top: 4px;
+  margin-bottom: 18px;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.form-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+.form-group input, .form-group select {
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.btn-cancel {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-submit {
+  background: #d13b7d;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
 }
 </style>
