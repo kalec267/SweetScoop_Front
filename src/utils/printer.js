@@ -25,7 +25,9 @@ export const PrinterService = {
     
     console.log('--- 주문 상세 ---');
     let receiptContent = "      [ 영 수 증 ]\n================================\n";
-    receiptContent += `주문번호 : ${receiptData.orderId || 'N/A'}\n`;
+    
+    // 💡 1. 영수증 텍스트에 출력되는 주문번호를 waitingNo로 변경
+    receiptContent += `주문번호 : ${receiptData.waitingNo || 'N/A'}\n`; 
     receiptContent += `영수증번호 : ${receiptData.receiptNo || 'N/A'}\n`;
     receiptContent += `주문시각 : ${receiptData.orderTime || 'N/A'}\n--------------------------------\n`;
 
@@ -82,7 +84,8 @@ export const PrinterService = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orderNo: receiptData.orderId,
+          // 💡 2. 백엔드 프린터 컨트롤러로 넘어가는 orderNo를 orderId 대신 waitingNo로 변경
+          orderNo: receiptData.waitingNo, 
           orderItem: fullItemsDescription.join(', ') || '상품명',
           price: receiptData.totalPrice.toLocaleString() + "원",
           orderDate: receiptData.orderTime
@@ -96,4 +99,4 @@ export const PrinterService = {
       console.error('====== [HARDWARE DRIVER] 네트워크 프린터 전송 실패 ======');
     }
   }
-};
+}

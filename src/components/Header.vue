@@ -2,7 +2,7 @@
   <header class="main-header">
     <div class="header-right">
       
-      <!-- 1. 알림 벨 버튼 및 알림 레이어 -->
+      <!-- 알림 벨 버튼 및 알림 레이어 -->
       <div class="notification-container">
         <button class="icon-btn" @click="toggleNotification">
           <span class="icon">🔔</span>
@@ -10,10 +10,19 @@
         </button>
 
         <!-- 실시간 알림 드롭다운 박스 -->
-        <div v-if="showNotificationBox" class="notification-box">
-          <div class="noti-header">실시간 알림</div>
+        <div v-if="showNotificationBox" class="notification-box" @click.stop>
+          <div class="noti-header">
+            <span>실시간 주문 알림</span>
+            <span style="font-size: 11px; color: #94a3b8; font-weight: normal;">클릭하면 삭제됩니다</span>
+          </div>
           <div class="noti-body">
-            <div v-for="(noti, idx) in notifications" :key="idx" class="noti-item">
+            <div 
+              v-for="(noti, idx) in notifications" 
+              :key="idx" 
+              class="noti-item clickable"
+              @click="removeNotification(idx)"
+              title="클릭하여 알림 지우기"
+            >
               {{ noti }}
             </div>
             <div v-if="notifications.length === 0" class="noti-empty">
@@ -23,36 +32,23 @@
         </div>
       </div>
       
-      <!-- 2. 관리자 드롭다운 컨테이너 -->
+      <!-- 관리자 드롭다운 컨테이너 -->
       <div class="profile-dropdown-container">
         <button class="profile-btn" @click="toggleDropdown">
           <span class="avatar-circle">관</span>
-          <!-- 💡 권한에 따라 노출되는 이름 변경 -->
           <span class="admin-name">
             {{ userRole === 'HQ' ? '총 관리자 ▾' : '분점 관리자 ▾' }}
           </span>
         </button>
 
-        <!-- 드롭다운 리스트 박스 -->
         <div v-if="isDropdownOpen" class="admin-dropdown-menu">
-          <!-- 💡 권한에 따라 드롭다운 헤더 텍스트 분기 -->
           <div class="dropdown-header">
             {{ userRole === 'HQ' ? '본점 · 슈퍼관리자님' : '스윗스쿱 강남역점님' }}
           </div>
           <hr />
 
-          <!-- 💡 [본사 관리자 HQ 전용 바로가기 링크] -->
-          <template v-if="userRole === 'HQ'">
-            <!-- <router-link to="/menu-management" class="dropdown-item" @click="isDropdownOpen = false">🍒 맛 관리</router-link> -->
-            <!-- <router-link to="/event-management" class="dropdown-item" @click="isDropdownOpen = false">🎁 이벤트 / 배너 관리</router-link>
-            <router-link to="/inquiries" class="dropdown-item" @click="isDropdownOpen = false">💬 지점문의 답변</router-link> -->
-          </template>
-
-          <!-- 💡 [분점 관리자 BRANCH 전용 바로가기 링크] -->
-          <template v-else-if="userRole === 'BRANCH'">
+          <template v-if="userRole === 'BRANCH'">
             <router-link to="/branch/dashboard" class="dropdown-item" @click="isDropdownOpen = false">🏠 지점 홈</router-link>
-            <!-- <router-link to="/branch/inventory" class="dropdown-item" @click="isDropdownOpen = false">🍦 실시간 재고 관리</router-link>
-            <router-link to="/branch/order-request" class="dropdown-item" @click="isDropdownOpen = false">📨 발주 신청</router-link> -->
           </template>
 
           <hr />
@@ -67,24 +63,21 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { db } from '@/api/firebase';
+import { collection, query, onSnapshot } from "firebase/firestore";
 
 const router = useRouter();
 
-// 알림 관련 상태
 const notifications = ref([]);
 const showNotificationBox = ref(false);
 const hasNewNotification = ref(false);
-let sseSource = null;
 
-// 관리자 프로필 및 권한 상태
 const isDropdownOpen = ref(false);
-const userRole = ref(''); // 👈 로컬스토리지에서 읽어올 권한 ('HQ' 또는 'BRANCH')
+const userRole = ref('');
 
 const toggleDropdown = (event) => {
-  console.log("dropdown click");
   event.stopPropagation();
   isDropdownOpen.value = !isDropdownOpen.value;
-  console.log(isDropdownOpen.value);
   if (isDropdownOpen.value) {
     showNotificationBox.value = false;
   }
@@ -99,8 +92,11 @@ const toggleNotification = (event) => {
   }
 };
 
+const removeNotification = (idx) => {
+  notifications.value.splice(idx, 1);
+};
+
 const closeAllPopups = () => {
-  console.log("closeAllPopups");
   isDropdownOpen.value = false;
   showNotificationBox.value = false;
 };
@@ -108,37 +104,82 @@ const closeAllPopups = () => {
 const handleLogout = () => {
   if (confirm("로그아웃 하시겠습니까?")) {
     isDropdownOpen.value = false;
-    // 💡 로그아웃 시 로컬스토리지 데이터 완전 청소
     localStorage.removeItem('userRole');
     localStorage.removeItem('username');
     router.push('/login');
   }
 };
 
+// 💡 띵동 차임벨 재생 함수
+const playDingDongSound = () => {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const playTone = (frequency, startTime, duration) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(frequency, audioCtx.currentTime + startTime);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime + startTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + startTime + duration);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.start(audioCtx.currentTime + startTime);
+      osc.stop(audioCtx.currentTime + startTime + duration);
+    };
+
+    playTone(659.25, 0, 0.4);
+    playTone(523.25, 0.35, 0.6);
+  } catch (error) {
+    console.log("오디오 재생 중 오류가 발생했습니다.", error);
+  }
+};
+
+let unsubscribeOrders = null;
+
 onMounted(() => {
   window.addEventListener('click', closeAllPopups);
-
-  // 💡 로컬 스토리지에 저장된 유저 권한 획득하여 동적 바인딩 준비
   userRole.value = localStorage.getItem('userRole') || 'HQ';
 
-  // SSE 연결 열기 (본사 어드민 로그인 계정 기준)
-  sseSource = new EventSource('/api/admin/sse/connect?adminId=main_hq');
+  // 💡 최초 로딩 시 기존 데이터로 인한 중복 소리 방지 플래그
+  let isInitialLoad = true;
 
-  // 실시간 알림 수신 리스너 등록
-  sseSource.addEventListener('notification', (event) => {
-    notifications.value.unshift(event.data);
-    hasNewNotification.value = true;
+  const ordersQuery = query(collection(db, "orders"));
+  unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
+    // 첫 스냅샷(기존 데이터 로딩)은 소리 안 나게 통과시킴
+    if (isInitialLoad) {
+      isInitialLoad = false;
+      return;
+    }
+
+    // 이후부터 실제로 새로 추가되는 주문에만 반응
+    snapshot.docChanges().forEach((change) => {
+      if (change.type === "added") {
+        const newOrder = change.doc.data();
+
+        // 1. 진짜 새 주문일 때만 띵동 소리 재생
+        playDingDongSound();
+
+        // 2. 헤더 알림 리스트에 추가
+        const message = `[새 주문] 주문번호 #${newOrder.orderNo || '알수없음'} (웨이팅 ${newOrder.waitingNo || '-'}번) 접수`;
+        notifications.value.unshift(message);
+
+        // 3. 벨 아이콘 빨간 점 활성화
+        hasNewNotification.value = true;
+      }
+    });
   });
 });
 
 onUnmounted(() => {
   window.removeEventListener('click', closeAllPopups);
-  if (sseSource) sseSource.close();
+  if (unsubscribeOrders) unsubscribeOrders();
 });
 </script>
 
 <style scoped>
-/* 기존 스타일은 동일하게 유지됩니다 */
 .main-header {
   height: 60px;
   display: flex;
@@ -202,6 +243,9 @@ onUnmounted(() => {
   font-size: 14px;
   border-bottom: 1px solid #f1f5f9;
   color: #1e293b;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .noti-body {
   overflow-y: auto;
@@ -213,6 +257,14 @@ onUnmounted(() => {
   border-bottom: 1px solid #f8fafc;
   color: #475569;
   line-height: 1.4;
+}
+.noti-item.clickable {
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+.noti-item.clickable:hover {
+  background-color: #fdf2f8;
+  color: #d13b7d;
 }
 .noti-item:last-child {
   border-bottom: none;
@@ -290,7 +342,7 @@ onUnmounted(() => {
 }
 .dropdown-item:hover {
   background: #f8fafc;
-  color: #d13b7d; /* 배스킨라빈스 오리지널 핑크 매칭 */
+  color: #d13b7d;
 }
 .logout-btn {
   color: #dc2626;
