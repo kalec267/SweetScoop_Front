@@ -21,6 +21,8 @@ import CouponManagement from "../views/CouponManagement.vue";
 import Promotion from "../views/Promotion.vue";
 import KioskControlView from "../views/kioskControlView.vue"
 import BranchInventoryView from "../views/inventory/BranchInventoryView.vue";
+import CS from '../views/CS.vue';
+import Notice from '../views/Notice.vue';
 
 // ========================================== 본사 물품 관리 화면
 // ==========================================
@@ -185,7 +187,7 @@ const routes = [
         component: BranchOrderHistory,
         meta: {
             requiresAuth: true,
-            roles: ["HQ","BRANCH"]
+            roles: ["HQ", "BRANCH"]
         }
     }, {
         path: "/branch/inventory",
@@ -238,6 +240,30 @@ const routes = [
             requiresAuth: true,
             roles: ["HQ", "BRANCH"]
         }
+    }, {
+        path: '/inquiries',
+        name: 'CS',
+        component: CS,
+        meta: {
+        requiresAuth: true,
+        role: "HQ"
+    }
+    }, {
+        path: "/branch/inquiries",
+        name: "BranchCS",
+        component: CS,
+        meta: {
+            requiresAuth: true,
+            role: "BRANCH"
+        }
+    }, {
+        path: '/notice',
+        name: 'Notice',
+        component: Notice,
+        meta: {
+        requiresAuth: true,
+        role: "HQ"
+    }
     },
 
     // ========================================== 존재하지 않는 주소 처리

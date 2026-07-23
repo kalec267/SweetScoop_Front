@@ -2,14 +2,17 @@
     <div class="menu-management-container">
         <div class="page-header">
             <div>
-                <h2>이벤트 관리</h2>
+                <h2>문의게시판 관리</h2>
                 <p class="subtitle">
-                    키오스크에 노출될 이벤트를 등록·수정·삭제합니다.
+                    문의 게시판 입니다
                 </p>
             </div>
 
-            <button class="btn-primary" @click="openCreateModal">
-                ＋ 신규 이벤트 등록
+            <button
+                v-if="userRole === 'BRANCH'"
+                class="btn-primary"
+                @click="openCreateModal">
+                ＋ 등록
             </button>
         </div>
         <div class="table-wrapper">
@@ -17,43 +20,76 @@
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>이벤트명</th>
-                        <th>시작일</th>
-                        <th>종료일</th>
-                        <th>시작시간</th>
-                        <th>종료시간</th>
+                        <th>작성자</th>
+                        <th>제목</th>
+                        <th>작성 시간</th>
+                        <th>상태</th>
                         <th>관리</th>
                     </tr>
                 </thead>
 
                 <tbody>
-                    <tr v-if="paginatedPromotions.length === 0">
+                    <tr v-if="paginatedCS.length === 0">
                         <td colspan="6" class="text-center py-5 text-muted">
-                            등록된 이벤트가 없습니다.
+                            등록된 문의가 없습니다.
                         </td>
                     </tr>
 
-                    <tr v-for="promotion in paginatedPromotions" :key="promotion.id">
-                        <td>{{ promotion.id }}</td>
+                    <tr v-for="cs in paginatedCS" :key="cs.id">
+                        <!-- ID -->
                         <td>
-                            <span class="event-name">
-                                {{ promotion.eventName }}
+                            {{ cs.id }}
+                        </td>
+
+                        <!-- 작성자 -->
+                        <td>
+                            {{ cs.managerName ?? "-" }}
+                        </td>
+
+                        <!-- 제목 -->
+                        <td>
+                            <span class="cs-name">
+                                {{ cs.title }}
                             </span>
                         </td>
-                        <td>{{ promotion.startDate }}</td>
-                        <td>{{ promotion.endDate }}</td>
-                        <td>{{ formatDateTime(promotion.startTime) }}</td>
-                        <td>{{ formatDateTime(promotion.endTime) }}</td>
+
+                        <!-- 작성 시간 -->
+                        <td>
+                            {{ formatDate(cs.createdAt) }}
+                        </td>
+
+                        <!-- 상태 -->
+                        <td>
+                            <span v-if="cs.answer" class="status complete">
+                                답변완료
+                            </span>
+
+                            <span v-else class="status waiting">
+                                답변대기
+                            </span>
+                        </td>
+
+                        <!-- 관리 -->
                         <td>
                             <div class="btn-group">
-                                <button class="btn-detail" @click="openDetailModal(promotion)">
+                                <button class="btn-detail" @click="openDetailModal(cs)">
                                     상세보기
                                 </button>
-                                <button class="btn-edit" @click="openEditModal(promotion)">
+
+                                <button
+                                    v-if="
+                            userRole === 'BRANCH' &&
+                            !cs.answer
+                        "
+                                    class="btn-edit"
+                                    @click="openEditModal(cs)">
                                     수정
                                 </button>
 
-                                <button class="btn-delete" @click="removePromotion(promotion.id)">
+                                <button
+                                    v-if="userRole === 'BRANCH'"
+                                    class="btn-delete"
+                                    @click="removeCS(cs.id)">
                                     삭제
                                 </button>
                             </div>
@@ -62,13 +98,13 @@
                 </tbody>
             </table>
         </div>
-        <div class="pagination-container" v-if="promotions.length > 0">
+        <div class="pagination-container" v-if="csList.length > 0">
             <div class="pagination-info">
                 전체
-                {{ promotions.length }}개 항목 중
+                {{ csList.length }}개 항목 중
                 {{ (currentPage-1)*itemsPerPage+1 }}
                 -
-                {{ Math.min(currentPage*itemsPerPage,promotions.length) }}
+                {{ Math.min(currentPage*itemsPerPage,csList.length) }}
                 표시
             </div>
 
@@ -101,74 +137,24 @@
         <!-- 1. 등록 / 수정 팝업 모달 -->
         <div v-if="isModalOpen" class="modal-overlay">
             <div class="modal-content">
-                <h3>{{ isEditMode ? '이벤트 수정' : '신규 이벤트 등록' }}</h3>
+                <h3>{{ isEditMode ? '수정' : '등록' }}</h3>
 
                 <div class="form-group">
-                    <label>이벤트명</label>
-                    <input type="text" v-model="promotionForm.eventName"/>
+                    <label>문의 제목</label>
+                    <input type="text" v-model="csForm.title"/>
                 </div>
 
                 <div class="form-group">
-                    <label>이벤트 내용</label>
-                    <textarea v-model="promotionForm.eventContent"></textarea>
+                    <label>문의 내용</label>
+                    <textarea v-model="csForm.content"></textarea>
                 </div>
 
-                <div class="form-group">
-                    <label>시작일</label>
-                    <input type="date" v-model="promotionForm.startDate"/>
-                </div>
-
-                <div class="form-group">
-                    <label>종료일</label>
-                    <input type="date" v-model="promotionForm.endDate"/>
-                </div>
-
-                <div class="form-group">
-                    <label>시작시간</label>
-                    <input type="datetime-local" v-model="promotionForm.startTime"/>
-                </div>
-
-                <div class="form-group">
-                    <label>종료시간</label>
-                    <input type="datetime-local" v-model="promotionForm.endTime"/>
-                </div>
-                <div class="form-group">
-
-                    <label>이벤트 이미지</label>
-
-                    <div class="image-select-list">
-
-                        <div
-                            v-for="img in imageList"
-                            :key="img.code"
-                            class="image-item"
-                            @click="selectImage(img)">
-
-                            <img :src="img.url"/>
-
-                            <span>
-                                {{ img.name }}
-                            </span>
-
-                        </div>
-
-                    </div>
-                    <img
-                        v-if="promotionForm.imageUrl"
-                        :src="promotionForm.imageUrl"
-                        style="
-    width:40px;
-    margin-top:10px;
-    height:60px;
-    border-radius:10px;
-  "/>
-                </div>
                 <div class="modal-actions">
                     <button class="btn-secondary" @click="closeModal">
                         취소
                     </button>
 
-                    <button class="btn-primary" @click="submitPromotion">
+                    <button class="btn-primary" @click="submitCS">
                         저장
                     </button>
                 </div>
@@ -176,49 +162,63 @@
         </div>
         <div v-if="isDetailModalOpen" class="modal-overlay">
             <div class="modal-content">
-                <h3>이벤트 상세보기</h3>
+                <h3>문의내역 상세보기</h3>
 
                 <div class="form-group">
-                    <label>이벤트명</label>
-                    <p>{{ selectedPromotion.eventName }}</p>
-                </div>
-
-                <div class="form-group">
-                    <label>이벤트 내용</label>
-                    <p>{{ selectedPromotion.eventContent }}</p>
+                    <label>문의 제목</label>
+                    <p>{{ selectedCS.title }}</p>
                 </div>
 
                 <div class="form-group">
-                    <label>시작일</label>
-                    <p>{{ selectedPromotion.startDate }}</p>
+                    <label>문의 내용</label>
+                    <p>{{ selectedCS.content }}</p>
                 </div>
 
                 <div class="form-group">
-                    <label>종료일</label>
-                    <p>{{ selectedPromotion.endDate }}</p>
+                    <label>작성 시간</label>
+                    <p>{{ formatDate(selectedCS.createdAt) }}</p>
                 </div>
 
                 <div class="form-group">
-                    <label>시작시간</label>
-                    <p>{{ formatDateTime(selectedPromotion.startTime) }}</p>
+                    <label>매니저</label>
+                    <p>{{ selectedCS.managerName }}</p>
                 </div>
 
                 <div class="form-group">
-                    <label>종료시간</label>
-                    <p>{{ formatDateTime(selectedPromotion.endTime) }}</p>
+                    <label>본사</label>
+                    <p>{{ selectedCS.hqManagerName ?? '-' }}</p>
                 </div>
-                <div class="form-group" v-if="selectedPromotion.imageUrl">
-                    <label>이벤트 이미지</label>
 
-                    <img
-                        :src="selectedPromotion.imageUrl"
-                        style="
- width:200px;
- border-radius:10px;
- "/>
+                <div class="form-group">
+                    <label>답변</label>
 
+                    <p v-if="selectedCS.answer">
+                        {{ selectedCS.answer }}
+                    </p>
+
+                    <p v-else>
+                        답변 대기중
+                    </p>
                 </div>
+
+                <!-- HQ만 답변 가능 -->
+                <div v-if="userRole === 'HQ' && !selectedCS.answer" class="form-group">
+                    <label>답변 작성</label>
+
+                    <textarea v-model="answerText" placeholder="답변을 입력하세요"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>답변 시간</label>
+                    <p>{{ formatDate(selectedCS.answeredAt) }}</p>
+                </div>
+
                 <div class="modal-actions">
+                    <button
+                        v-if="userRole === 'HQ' && !selectedCS.answer"
+                        class="btn-primary"
+                        @click="submitAnswer">
+                        답변등록
+                    </button>
                     <button class="btn-primary" @click="closeDetailModal">
                         닫기
                     </button>
@@ -233,84 +233,55 @@
     import {ref, computed, onMounted} from 'vue'
     import axios from 'axios'
 
-    
-
-    const imageList = [
-        {
-            code: "POINT_EVENT",
-            name: "포인트 적립 이벤트",
-            url: pointEvent
-        }, {
-            code: "NEW_MENU",
-            name: "딥다크",
-            url: dark
-        }, {
-            code: "NEW_MENU2",
-            name: "미러볼",
-            url: mirrorball
-        }, {
-            code: "NEW_MENU3",
-            name: "달아이스크림",
-            url: moon
-        }
-    ]
-    const getImageUrl = (imageCode) => {
-
-        return imageList.find(img => img.code === imageCode)
-            ?.url
-    }
-
-    const selectedImage = ref(null)
-
-    const selectImage = (img) => {
-        console.log("선택한 이미지:", img)
-
-        selectedImage.value = img
-        promotionForm.value.imageCode = img.code
-        promotionForm.value.imageUrl = img
-            .url
-
-            console
-            .log(promotionForm.value)
-
-    }
+    //스토리지 저장
+    const userRole = localStorage.getItem("userRole");
+    const username = localStorage.getItem("username");
+    const hqManagerId = localStorage.getItem("hqManagerId");
+    const managerId = localStorage.getItem("managerId")
 
     const currentPage = ref(1)
     const itemsPerPage = 5
 
     const isModalOpen = ref(false)
     const isEditMode = ref(false)
-    const selectedPromotionId = ref(null)
+    const selectedCSId = ref(null)
 
-    const promotionForm = ref({
-        eventName: "",
-        eventContent: "",
-        imageCode: "",
-        startDate: "",
-        endDate: "",
-        startTime: "",
-        endTime: "",
-        imageUrl: ""
-    })
+    console.log(localStorage.getItem("hqManagerId"));
 
-    const submitPromotion = async () => {
+    //등록값
+    const createCSForm = () => ({
+        title: "",
+        content: "",
 
-        console.log(JSON.stringify(promotionForm.value))
+        managerId: userRole === "BRANCH"
+            ? username
+            : null,
+
+        hqManagerId: userRole === "HQ"
+            ? username
+            : null
+    });
+
+    const csForm = ref(createCSForm());
+
+    console.log({userRole, username, managerId, hqManagerId, data: csForm.value})
+    const submitCS = async () => {
+
+        console.log("전송 데이터", csForm.value)
 
         if (isEditMode.value) {
 
-            await axios.put(
-                `/api/promotion/${selectedPromotionId.value}`,
-                promotionForm.value
-            )
+            await axios.put(`/api/cs/${selectedCSId.value}`, csForm.value)
 
         } else {
 
-            await axios.post("/api/promotion", promotionForm.value)
+            await axios.post("/api/cs", csForm.value)
 
         }
 
-        await loadPromotion()
+        await loadCS()
+        csForm.value = createCSForm();
+
         alert(
             isEditMode.value
                 ? "수정되었습니다."
@@ -323,15 +294,18 @@
         isModalOpen.value = false
     }
 
-    const paginatedPromotions = computed(() => {
+    const paginatedCS = computed(() => {
+
         const start = (currentPage.value - 1) * itemsPerPage
-        return promotions
+
+        return csList
             .value
             .slice(start, start + itemsPerPage)
+
     })
 
     const totalPages = computed(
-        () => Math.max(1, Math.ceil(promotions.value.length / itemsPerPage))
+        () => Math.max(1, Math.ceil(csList.value.length / itemsPerPage))
     )
 
     const setPage = (page) => {
@@ -340,52 +314,41 @@
         currentPage.value = page
     }
 
-    const promotions = ref([])
+    const csList = ref([])
 
-    const loadPromotion = async () => {
-        try {
-            const res = await axios.get("/api/promotion")
+    const loadCS = async () => {
 
-            console.log("API 원본:", res.data)
+        const res = await axios.get("/api/cs")
 
-            promotions.value = res.data
-
-        } catch (error) {
-            console.error(error)
-        }
+        csList.value = res.data
     }
 
     //등록창
     const openCreateModal = () => {
         isEditMode.value = false
 
-        promotionForm.value = {
-            eventName: "",
-            eventContent: "",
-            imageCode: "",
-            startDate: "",
-            endDate: "",
-            startTime: "",
-            endTime: "",
-            imageUrl: ""
-        }
+        csForm.value = createCSForm();
+
         isModalOpen.value = true
     }
     //수정창
-    const openEditModal = (promotion) => {
+    const openEditModal = (cs) => {
+
         isEditMode.value = true
 
-        selectedPromotionId.value = promotion.id
+        selectedCSId.value = cs.id
+        //수정할 값
+        csForm.value = {
+            title: cs.title,
+            content: cs.content,
 
-        promotionForm.value = {
-            eventName: promotion.eventName,
-            eventContent: promotion.eventContent,
-            imageCode: promotion.imageCode,
-            startDate: promotion.startDate,
-            endDate: promotion.endDate,
-            startTime: promotion.startTime,
-            endTime: promotion.endTime,
-            imageUrl: promotion.imageUrl
+            managerId: userRole === "BRANCH"
+                ? username
+                : null,
+
+            hqManagerId: userRole === "HQ"
+                ? username
+                : null
         }
 
         isModalOpen.value = true
@@ -393,68 +356,64 @@
     //상세보기창
     const isDetailModalOpen = ref(false)
 
-    const selectedPromotion = ref({
-        eventName: "",
-        eventContent: "",
-        startDate: "",
-        endDate: "",
-        startTime: "",
-        endTime: "",
-        imageUrl: ""
-    })
+    const selectedCS = ref(
+        {title: "", content: "", createdAt: "", managerName: "", hqManagerName: ""}
+    )
 
-    const openDetailModal = (promotion) => {
+    const openDetailModal = (cs) => {
 
-        selectedPromotion.value = {
-            ...promotion,
-            imageUrl: getImageUrl(promotion.imageCode)
+        selectedCS.value = {
+            ...cs
         }
-
-        console.log(selectedPromotion.value)
-
+        answerText.value = ""
         isDetailModalOpen.value = true
     }
 
     const closeDetailModal = () => {
         isDetailModalOpen.value = false
     }
-
-    const formatDateTime = (value) => {
-        if (!value) 
-            return "-"
-
-        return value.replace("T", " ")
-    }
-
     // 삭제
-    const removePromotion = async (id) => {
-        const ok = confirm("정말 삭제하시겠습니까?")
+    const removeCS = async (id) => {
 
-        if (!ok) 
+        if (!confirm("정말 삭제하시겠습니까?")) 
             return
 
-        try {
-            await axios.delete(`/api/promotion/${id}`)
+        await axios.delete(`/api/cs/${id}`)
 
-            alert("삭제되었습니다.")
+        await loadCS()
+    }
+    // 답변
+    const answerText = ref("")
 
-            // 목록 새로고침
-            await loadPromotion()
+    const submitAnswer = async () => {
 
-            if (currentPage.value > totalPages.value) {
-                currentPage.value = Math.max(1, totalPages.value)
-            }
-
-            // 또는 아래처럼 바로 화면에서 제거할 수도 있습니다. promotions.value = promotions.value.filter(p =>
-            // p.id !== id)
-
-        } catch (error) {
-            console.log(error)
-            alert("삭제 실패")
+        if (!answerText.value.trim()) {
+            alert("답변을 입력해주세요")
+            return
         }
+
+        await axios.put(`/api/cs/${selectedCS.value.id}/answer`, {
+            answer: answerText.value,
+            hqManagerId: username
+        })
+
+        alert("답변 등록 완료")
+
+        answerText.value = ""
+
+        await loadCS()
+
+        closeDetailModal()
+
     }
 
-    onMounted(loadPromotion)
+    const formatDate = (date) => {
+        return date
+            ? date.replace("T", " ")
+            : "-"
+    }
+
+    onMounted(loadCS)
 </script>
 <style scoped="scoped">
     /* 이벤트 관리 전용 스타일 스펙 */
@@ -497,10 +456,9 @@
         border-bottom: 1px solid #f1f5f9;
         vertical-align: middle;
     }
-    .event-name {
+    .cs-name {
         display: inline-block;
-        max-width: 100px;
-        /* 원하는 너비 */
+        max-width: 220px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -681,28 +639,26 @@
     .text-muted {
         color: #94a3b8;
     }
-
-    .image-select-list {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
+    .status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 72px;
+        padding: 6px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
     }
 
-    .image-item {
-        width: 100px;
-        cursor: pointer;
-        border: 1px solid #ddd;
-        padding: 5px;
-        border-radius: 8px;
+    .status.complete {
+        color: #15803d;
+        background: #dcfce7;
+        border: 1px solid #bbf7d0;
     }
 
-    .image-item img {
-        width: 0;
-        height: 0;
-        object-fit: cover;
-    }
-
-    .image-item:hover {
-        border: 2px solid #6f42c1;
+    .status.waiting {
+        color: #c2410c;
+        background: #ffedd5;
+        border: 1px solid #fed7aa;
     }
 </style>

@@ -2,14 +2,14 @@
     <div class="menu-management-container">
         <div class="page-header">
             <div>
-                <h2>이벤트 관리</h2>
+                <h2>공지사항</h2>
                 <p class="subtitle">
-                    키오스크에 노출될 이벤트를 등록·수정·삭제합니다.
+                    공지사항 입니다
                 </p>
             </div>
 
-            <button class="btn-primary" @click="openCreateModal">
-                ＋ 신규 이벤트 등록
+            <button class="btn-primary" @click="openCreateModal" v-if="userRole === 'HQ'">
+                ＋ 등록
             </button>
         </div>
         <div class="table-wrapper">
@@ -17,43 +17,55 @@
                 <thead>
                     <tr>
                         <th>ID</th>
-                        <th>이벤트명</th>
-                        <th>시작일</th>
-                        <th>종료일</th>
-                        <th>시작시간</th>
-                        <th>종료시간</th>
+                        <th>작성자</th>
+                        <th>제목</th>
+                        <th>작성 시간</th>
                         <th>관리</th>
                     </tr>
                 </thead>
 
                 <tbody>
-                    <tr v-if="paginatedPromotions.length === 0">
-                        <td colspan="6" class="text-center py-5 text-muted">
-                            등록된 이벤트가 없습니다.
-                        </td>
-                    </tr>
-
-                    <tr v-for="promotion in paginatedPromotions" :key="promotion.id">
-                        <td>{{ promotion.id }}</td>
+                    <tr v-for="notice in paginatedNotice" :key="notice.id">
+                        <!-- ID -->
                         <td>
-                            <span class="event-name">
-                                {{ promotion.eventName }}
+                            {{ notice.id }}
+                        </td>
+
+                        <!-- 작성자 -->
+                        <td>
+                            {{ notice.hqManagerName ?? "-" }}
+                        </td>
+
+                        <!-- 제목 -->
+                        <td>
+                            <span class="notice-name">
+                                {{ notice.title }}
                             </span>
                         </td>
-                        <td>{{ promotion.startDate }}</td>
-                        <td>{{ promotion.endDate }}</td>
-                        <td>{{ formatDateTime(promotion.startTime) }}</td>
-                        <td>{{ formatDateTime(promotion.endTime) }}</td>
+
+                        <!-- 작성 시간 -->
+                        <td>
+                            {{ formatDate(notice.createdAt) }}
+                        </td>
+
+                        <!-- 관리 -->
                         <td>
                             <div class="btn-group">
-                                <button class="btn-detail" @click="openDetailModal(promotion)">
+                                <button class="btn-detail" @click="openDetailModal(notice)">
                                     상세보기
                                 </button>
-                                <button class="btn-edit" @click="openEditModal(promotion)">
+
+                                <button
+                                    v-if="userRole === 'HQ'"
+                                    class="btn-edit"
+                                    @click="openEditModal(notice)">
                                     수정
                                 </button>
 
-                                <button class="btn-delete" @click="removePromotion(promotion.id)">
+                                <button
+                                    v-if="userRole === 'HQ'"
+                                    class="btn-delete"
+                                    @click="removeNotice(notice.id)">
                                     삭제
                                 </button>
                             </div>
@@ -62,13 +74,13 @@
                 </tbody>
             </table>
         </div>
-        <div class="pagination-container" v-if="promotions.length > 0">
+        <div class="pagination-container" v-if="noticeList.length > 0">
             <div class="pagination-info">
                 전체
-                {{ promotions.length }}개 항목 중
+                {{ noticeList.length }}개 항목 중
                 {{ (currentPage-1)*itemsPerPage+1 }}
                 -
-                {{ Math.min(currentPage*itemsPerPage,promotions.length) }}
+                {{ Math.min(currentPage*itemsPerPage,noticeList.length) }}
                 표시
             </div>
 
@@ -101,74 +113,24 @@
         <!-- 1. 등록 / 수정 팝업 모달 -->
         <div v-if="isModalOpen" class="modal-overlay">
             <div class="modal-content">
-                <h3>{{ isEditMode ? '이벤트 수정' : '신규 이벤트 등록' }}</h3>
+                <h3>{{ isEditMode ? '수정' : '등록' }}</h3>
 
                 <div class="form-group">
-                    <label>이벤트명</label>
-                    <input type="text" v-model="promotionForm.eventName"/>
+                    <label>제목</label>
+                    <input type="text" v-model="noticeForm.title"/>
                 </div>
 
                 <div class="form-group">
-                    <label>이벤트 내용</label>
-                    <textarea v-model="promotionForm.eventContent"></textarea>
+                    <label>내용</label>
+                    <textarea v-model="noticeForm.content"></textarea>
                 </div>
 
-                <div class="form-group">
-                    <label>시작일</label>
-                    <input type="date" v-model="promotionForm.startDate"/>
-                </div>
-
-                <div class="form-group">
-                    <label>종료일</label>
-                    <input type="date" v-model="promotionForm.endDate"/>
-                </div>
-
-                <div class="form-group">
-                    <label>시작시간</label>
-                    <input type="datetime-local" v-model="promotionForm.startTime"/>
-                </div>
-
-                <div class="form-group">
-                    <label>종료시간</label>
-                    <input type="datetime-local" v-model="promotionForm.endTime"/>
-                </div>
-                <div class="form-group">
-
-                    <label>이벤트 이미지</label>
-
-                    <div class="image-select-list">
-
-                        <div
-                            v-for="img in imageList"
-                            :key="img.code"
-                            class="image-item"
-                            @click="selectImage(img)">
-
-                            <img :src="img.url"/>
-
-                            <span>
-                                {{ img.name }}
-                            </span>
-
-                        </div>
-
-                    </div>
-                    <img
-                        v-if="promotionForm.imageUrl"
-                        :src="promotionForm.imageUrl"
-                        style="
-    width:40px;
-    margin-top:10px;
-    height:60px;
-    border-radius:10px;
-  "/>
-                </div>
                 <div class="modal-actions">
                     <button class="btn-secondary" @click="closeModal">
                         취소
                     </button>
 
-                    <button class="btn-primary" @click="submitPromotion">
+                    <button class="btn-primary" @click="submitNotice">
                         저장
                     </button>
                 </div>
@@ -176,48 +138,38 @@
         </div>
         <div v-if="isDetailModalOpen" class="modal-overlay">
             <div class="modal-content">
-                <h3>이벤트 상세보기</h3>
+                <h3>상세보기</h3>
 
                 <div class="form-group">
-                    <label>이벤트명</label>
-                    <p>{{ selectedPromotion.eventName }}</p>
-                </div>
-
-                <div class="form-group">
-                    <label>이벤트 내용</label>
-                    <p>{{ selectedPromotion.eventContent }}</p>
+                    <label>제목</label>
+                    <p>{{selectedNotice.title}}</p>
                 </div>
 
                 <div class="form-group">
-                    <label>시작일</label>
-                    <p>{{ selectedPromotion.startDate }}</p>
+                    <label>내용</label>
+                    <p>{{selectedNotice.content}}</p>
                 </div>
 
                 <div class="form-group">
-                    <label>종료일</label>
-                    <p>{{ selectedPromotion.endDate }}</p>
+                    <label>작성 시간</label>
+                    <p>{{formatDate(selectedNotice.createdAt)}}</p>
                 </div>
 
                 <div class="form-group">
-                    <label>시작시간</label>
-                    <p>{{ formatDateTime(selectedPromotion.startTime) }}</p>
+                    <label>수정 시간</label>
+                    <p>
+                        {{ selectedNotice.updateAt 
+            ? formatDate(selectedNotice.updateAt) 
+            : '-' 
+        }}
+                    </p>
                 </div>
 
                 <div class="form-group">
-                    <label>종료시간</label>
-                    <p>{{ formatDateTime(selectedPromotion.endTime) }}</p>
+                    <label>작성자</label>
+                    <p>notice.title</p>
                 </div>
-                <div class="form-group" v-if="selectedPromotion.imageUrl">
-                    <label>이벤트 이미지</label>
 
-                    <img
-                        :src="selectedPromotion.imageUrl"
-                        style="
- width:200px;
- border-radius:10px;
- "/>
-
-                </div>
                 <div class="modal-actions">
                     <button class="btn-primary" @click="closeDetailModal">
                         닫기
@@ -233,84 +185,40 @@
     import {ref, computed, onMounted} from 'vue'
     import axios from 'axios'
 
-    
-
-    const imageList = [
-        {
-            code: "POINT_EVENT",
-            name: "포인트 적립 이벤트",
-            url: pointEvent
-        }, {
-            code: "NEW_MENU",
-            name: "딥다크",
-            url: dark
-        }, {
-            code: "NEW_MENU2",
-            name: "미러볼",
-            url: mirrorball
-        }, {
-            code: "NEW_MENU3",
-            name: "달아이스크림",
-            url: moon
-        }
-    ]
-    const getImageUrl = (imageCode) => {
-
-        return imageList.find(img => img.code === imageCode)
-            ?.url
-    }
-
-    const selectedImage = ref(null)
-
-    const selectImage = (img) => {
-        console.log("선택한 이미지:", img)
-
-        selectedImage.value = img
-        promotionForm.value.imageCode = img.code
-        promotionForm.value.imageUrl = img
-            .url
-
-            console
-            .log(promotionForm.value)
-
-    }
+    const userRole = localStorage.getItem("userRole");
+    const username = localStorage.getItem("username");
 
     const currentPage = ref(1)
     const itemsPerPage = 5
 
     const isModalOpen = ref(false)
     const isEditMode = ref(false)
-    const selectedPromotionId = ref(null)
 
-    const promotionForm = ref({
-        eventName: "",
-        eventContent: "",
-        imageCode: "",
-        startDate: "",
-        endDate: "",
-        startTime: "",
-        endTime: "",
-        imageUrl: ""
-    })
+    //등록값
+    const createNoticeForm = () => (
+        {title: "", content: "", hqManagerId: username}
+    );
 
-    const submitPromotion = async () => {
+    const noticeForm = ref(createNoticeForm());
 
-        console.log(JSON.stringify(promotionForm.value))
+    const selectedNoticeId = ref(null)
+
+    //버튼 클릭 시
+    const submitNotice = async () => {
 
         if (isEditMode.value) {
 
-            await axios.put(
-                `/api/promotion/${selectedPromotionId.value}`,
-                promotionForm.value
-            )
+            await axios.put(`/api/notice/${selectedNoticeId.value}`, noticeForm.value)
 
         } else {
 
-            await axios.post("/api/promotion", promotionForm.value)
-
+            await axios.post("/api/notice", noticeForm.value)
         }
 
-        await loadPromotion()
+        await loadNotice()
+
+        noticeForm.value = createNoticeForm();
+
         alert(
             isEditMode.value
                 ? "수정되었습니다."
@@ -323,15 +231,18 @@
         isModalOpen.value = false
     }
 
-    const paginatedPromotions = computed(() => {
+    const paginatedNotice = computed(() => {
+
         const start = (currentPage.value - 1) * itemsPerPage
-        return promotions
+
+        return noticeList
             .value
             .slice(start, start + itemsPerPage)
+
     })
 
     const totalPages = computed(
-        () => Math.max(1, Math.ceil(promotions.value.length / itemsPerPage))
+        () => Math.max(1, Math.ceil(noticeList.value.length / itemsPerPage))
     )
 
     const setPage = (page) => {
@@ -340,52 +251,38 @@
         currentPage.value = page
     }
 
-    const promotions = ref([])
+    const noticeList = ref([])
 
-    const loadPromotion = async () => {
-        try {
-            const res = await axios.get("/api/promotion")
+    const loadNotice = async () => {
 
-            console.log("API 원본:", res.data)
+        const res = await axios.get("/api/notice")
 
-            promotions.value = res.data
-
-        } catch (error) {
-            console.error(error)
-        }
+        noticeList.value = res.data
     }
 
     //등록창
     const openCreateModal = () => {
         isEditMode.value = false
 
-        promotionForm.value = {
-            eventName: "",
-            eventContent: "",
-            imageCode: "",
-            startDate: "",
-            endDate: "",
-            startTime: "",
-            endTime: "",
-            imageUrl: ""
+        noticeForm.value = {
+            title: "",
+            content: "",
+            hqManagerId: username
         }
+
         isModalOpen.value = true
     }
     //수정창
-    const openEditModal = (promotion) => {
+    const openEditModal = (notice) => {
+
         isEditMode.value = true
 
-        selectedPromotionId.value = promotion.id
+        selectedNoticeId.value = notice.id
 
-        promotionForm.value = {
-            eventName: promotion.eventName,
-            eventContent: promotion.eventContent,
-            imageCode: promotion.imageCode,
-            startDate: promotion.startDate,
-            endDate: promotion.endDate,
-            startTime: promotion.startTime,
-            endTime: promotion.endTime,
-            imageUrl: promotion.imageUrl
+        noticeForm.value = {
+            title: notice.title,
+            content: notice.content,
+            hqManagerId: username
         }
 
         isModalOpen.value = true
@@ -393,24 +290,14 @@
     //상세보기창
     const isDetailModalOpen = ref(false)
 
-    const selectedPromotion = ref({
-        eventName: "",
-        eventContent: "",
-        startDate: "",
-        endDate: "",
-        startTime: "",
-        endTime: "",
-        imageUrl: ""
-    })
+    const selectedNotice = ref(
+        {title: "", content: "", createdAt: "", updateAt: "", hqManagerName: ""}
+    )
+    const openDetailModal = (notice) => {
 
-    const openDetailModal = (promotion) => {
-
-        selectedPromotion.value = {
-            ...promotion,
-            imageUrl: getImageUrl(promotion.imageCode)
+        selectedNotice.value = {
+            ...notice
         }
-
-        console.log(selectedPromotion.value)
 
         isDetailModalOpen.value = true
     }
@@ -418,43 +305,24 @@
     const closeDetailModal = () => {
         isDetailModalOpen.value = false
     }
-
-    const formatDateTime = (value) => {
-        if (!value) 
-            return "-"
-
-        return value.replace("T", " ")
-    }
-
     // 삭제
-    const removePromotion = async (id) => {
-        const ok = confirm("정말 삭제하시겠습니까?")
+    const removeNotice = async (id) => {
 
-        if (!ok) 
+        if (!confirm("정말 삭제하시겠습니까?")) 
             return
 
-        try {
-            await axios.delete(`/api/promotion/${id}`)
+        await axios.delete(`/api/notice/${id}`)
 
-            alert("삭제되었습니다.")
-
-            // 목록 새로고침
-            await loadPromotion()
-
-            if (currentPage.value > totalPages.value) {
-                currentPage.value = Math.max(1, totalPages.value)
-            }
-
-            // 또는 아래처럼 바로 화면에서 제거할 수도 있습니다. promotions.value = promotions.value.filter(p =>
-            // p.id !== id)
-
-        } catch (error) {
-            console.log(error)
-            alert("삭제 실패")
-        }
+        await loadNotice()
     }
 
-    onMounted(loadPromotion)
+    const formatDate = (date) => {
+        return date
+            ? date.replace("T", " ")
+            : "-"
+    }
+
+    onMounted(loadNotice)
 </script>
 <style scoped="scoped">
     /* 이벤트 관리 전용 스타일 스펙 */
@@ -497,7 +365,7 @@
         border-bottom: 1px solid #f1f5f9;
         vertical-align: middle;
     }
-    .event-name {
+    .notice-name {
         display: inline-block;
         max-width: 100px;
         /* 원하는 너비 */
@@ -680,29 +548,5 @@
     }
     .text-muted {
         color: #94a3b8;
-    }
-
-    .image-select-list {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-    }
-
-    .image-item {
-        width: 100px;
-        cursor: pointer;
-        border: 1px solid #ddd;
-        padding: 5px;
-        border-radius: 8px;
-    }
-
-    .image-item img {
-        width: 0;
-        height: 0;
-        object-fit: cover;
-    }
-
-    .image-item:hover {
-        border: 2px solid #6f42c1;
     }
 </style>

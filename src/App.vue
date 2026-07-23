@@ -1,4 +1,3 @@
-```vue
 <template>
   <div id="app-container">
     <div
@@ -131,4 +130,3 @@ body,
   min-height: 0;
 }
 </style>
-```
