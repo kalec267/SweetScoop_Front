@@ -64,3 +64,21 @@ LoginController는 LoginRequestDto 클래스에서 DTO 수집 및 검증 -> Auth
 
 -메뉴관리 가격수정 [MenuManagement.vue,api/Menu.js]-
 -대시보드 카테고리에 따른 분류 [Dashboard.vue]-
+
+
+260723
+
+-Header.vue 
+부분 종모양 실시간 주문 알림 및 빨강 실시간이펙트 구현완료 (누를시 삭제됨)
+실시간 주문이 들어올 경우 종모양 알림에 새로운 알림이 오면서 알림소리가 나옴(소리는 띵동으로 구현)
+
+-printer.js 부분에서 28번째 줄 영수증에 출력되는 주문번호가 orderId가 아닌 waitingNo로 출력 되도록 변경 //각 위치에 주석처리 완료
+ 1. receiptContent += `주문번호 : ${receiptData.orderId || 'N/A'}\n`;   ->    receiptContent += `주문번호 : ${receiptData.waitingNo || 'N/A'}\n`; 
+ 2. orderNo: receiptData.orderId, ->  orderNo: receiptData.waitingNo, 
+
+ -BranchDashboard.vue
+ 00시 스케쥴러 테스트 버튼 및 코드 구현
+ 단일 메뉴 구매시 ,로 인해 맛 옵션이 나오지않던 오류 수정
+ 실시간 주문 내역 메뉴에 제조완료, 주문취소 기능 추가
+ 제조완료를 누를시 firebase에서 문서 자동 삭제
+ 주문취소를 누를시 firebase와 DB에서 데이터 자동 삭제
