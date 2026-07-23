@@ -22,7 +22,24 @@
         <span v-else class="role-badge hq">본사 통합 관리자</span>
       </div>
 
+      <!-- 날짜 직접 선택 피커 + 기간 버튼 탭 -->
       <div class="filter-tabs">
+        <div class="date-picker-group">
+          <input 
+            type="date" 
+            v-model="startDate" 
+            @change="onCustomDateChange" 
+            class="date-input"
+          />
+          <span class="date-separator">~</span>
+          <input 
+            type="date" 
+            v-model="endDate" 
+            @change="onCustomDateChange" 
+            class="date-input"
+          />
+        </div>
+
         <button :class="{ active: currentFilter === 'today' }" @click="setFilter('today')">오늘</button>
         <button :class="{ active: currentFilter === '7days' }" @click="setFilter('7days')">최근 7일</button>
         <button :class="{ active: currentFilter === '30days' }" @click="setFilter('30days')">최근 30일</button>
@@ -33,11 +50,53 @@
     <div class="card-grid">
       <div class="stat-card">
         <div class="card-title">{{ selectedBranchId === 0 ? '전체 통합 누적 매출액' : '지점 단독 누적 매출액' }}</div>
-        <div class="card-value">₩ {{ formatNumber(stats.cumulativeSales) }}</div>
+        <div class="card-value-group">
+          <div class="card-value">₩ {{ formatNumber(stats.cumulativeSales) }}</div>
+          
+          <div 
+            v-if="stats.growthSalesRate !== undefined" 
+            class="growth-badge" 
+            :class="{ up: stats.growthSalesRate >= 0, down: stats.growthSalesRate < 0 }"
+          >
+            <span>{{ stats.growthSalesRate >= 0 ? '▲' : '▼' }} {{ Math.abs(stats.growthSalesRate) }}%</span>
+          </div>
+        </div>
       </div>
+
+      <!-- 2. 순이익  -->
+      <div class="stat-card">
+        <div class="card-title">추정 순이익</div>
+        <div class="card-value-group">
+          <div class="card-value" style="color: #10b981;">₩ {{ formatNumber(stats.netProfit) }}</div>
+          <div class="growth-badge up" style="background-color: #f0fdf4; color: #15803d;">
+            <span>원가 차감 후</span>
+          </div>
+        </div>
+      </div>
+
       <div class="stat-card">
         <div class="card-title">평균 객단가</div>
-        <div class="card-value">₩ {{ formatNumber(stats.averageReceipt) }}</div>
+        <div class="card-value-group">
+          <div class="card-value">₩ {{ formatNumber(stats.averageReceipt) }}</div>
+          
+          <div 
+            v-if="stats.growthReceiptRate !== undefined" 
+            class="growth-badge" 
+            :class="{ up: stats.growthReceiptRate >= 0, down: stats.growthReceiptRate < 0 }"
+          >
+            <span>{{ stats.growthReceiptRate >= 0 ? '▲' : '▼' }} {{ Math.abs(stats.growthReceiptRate) }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="card-title">순이익률 (마진율)</div>
+        <div class="card-value-group">
+          <div class="card-value" style="color: #6366f1;">{{ stats.profitMargin || 0 }} %</div>
+          <div class="growth-badge" style="background-color: #e0e7ff; color: #4338ca;">
+            <span>매출 대비</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -144,9 +203,18 @@ export default {
       selectedBranchId: 0, 
       branchList: [], // 백엔드에서 받아올 지점 목록
       currentFilter: 'today',
+      
+      // 날짜 선택 바인딩 변수
+      startDate: '',
+      endDate: '',
+
       stats: {
         cumulativeSales: 0,
         averageReceipt: 0,
+        netProfit: 0,
+        profitMargin: 0,
+        growthSalesRate: 0,
+        growthReceiptRate: 0,
         periodTrends: [],
         hourlyTrends: [],
         topFlavors: [],
@@ -170,9 +238,18 @@ export default {
       this.selectedBranchId = 0; // 본사 관리자: 전체 통합 기본
     }
 
-    this.fetchDashboardData();
+    // 초기 '오늘' 날짜 기본 설정
+    this.setFilter('today');
   },
   methods: {
+    // 날짜 포맷 변환 (YYYY-MM-DD)
+    formatDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    },
+
     // 지점 목록 조회 API (드롭다운 구성용)
     async fetchBranchList() {
       try {
@@ -188,7 +265,12 @@ export default {
     async fetchDashboardData() {
       try {
         const response = await axios.get('/api/sales/dashboard', {
-          params: { branchId: this.selectedBranchId, filter: this.currentFilter }
+          params: { 
+            branchId: this.selectedBranchId, 
+            filter: this.currentFilter,
+            startDate: this.startDate,
+            endDate: this.endDate
+          }
         });
         this.stats = response.data;
         this.renderCharts();
@@ -196,10 +278,42 @@ export default {
         console.error("통계 데이터를 가져오는 중 에러 발생:", error);
       }
     },
+
+    // 기간 버튼 선택 시 날짜 피커 자동 연동
     setFilter(filterType) {
       this.currentFilter = filterType;
+      const today = new Date();
+
+      if (filterType === 'today') {
+        this.startDate = this.formatDate(today);
+        this.endDate = this.formatDate(today);
+      } else if (filterType === '7days') {
+        const past = new Date();
+        past.setDate(today.getDate() - 6);
+        this.startDate = this.formatDate(past);
+        this.endDate = this.formatDate(today);
+      } else if (filterType === '30days') {
+        const past = new Date();
+        past.setDate(today.getDate() - 29);
+        this.startDate = this.formatDate(past);
+        this.endDate = this.formatDate(today);
+      }
+
       this.fetchDashboardData();
     },
+
+    // 날짜 피커로 사용자가 직접 날짜 선택 시 호출
+    onCustomDateChange() {
+      if (this.startDate && this.endDate) {
+        if (this.startDate > this.endDate) {
+          alert('시작일은 종료일보다 이전이어야 합니다.');
+          return;
+        }
+        this.currentFilter = 'custom';
+        this.fetchDashboardData();
+      }
+    },
+
     renderCharts() {
       // 1. 기간별 매출 추이
       const canvasPeriod = this.$refs.periodChartCanvas;
@@ -283,6 +397,7 @@ export default {
         });
       }
     },
+
     formatNumber(val) {
       if (val === undefined || val === null) return '0';
       return String(val).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -301,9 +416,17 @@ export default {
 .role-badge { font-size: 11px; font-weight: 700; background: #eff6ff; color: #2563eb; padding: 4px 8px; border-radius: 4px; }
 .role-badge.hq { background: #fdf2f8; color: #db2777; }
 
-.filter-tabs button { padding: 8px 16px; margin-left: 8px; border: 1px solid #cbd5e1; background-color: #fff; border-radius: 6px; cursor: pointer; font-weight: 500; }
-.filter-tabs button.active { background-color: #6366f1; color: #fff; border-color: #6366f1; }
-.card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
+/* 필터 영역 및 날짜 선택 스타일 */
+.filter-tabs { display: flex; align-items: center; gap: 8px; }
+.date-picker-group { display: flex; align-items: center; gap: 6px; background-color: #fff; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
+.date-input { border: none; font-size: 13px; font-weight: 500; color: #334155; outline: none; font-family: inherit; cursor: pointer; }
+.date-separator { color: #94a3b8; font-size: 13px; font-weight: 600; }
+
+.filter-tabs button { padding: 8px 16px; border: 1px solid #cbd5e1; background-color: #fff; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 14px; color: #475569; transition: all 0.2s ease; }
+.filter-tabs button:hover { background-color: #f8fafc; border-color: #94a3b8; }
+.filter-tabs button.active { background-color: #6366f1; color: #fff; border-color: #6366f1; font-weight: 600; }
+
+.card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
 .stat-card { background-color: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .card-title { color: #64748b; font-size: 14px; margin-bottom: 8px; }
 .card-value { font-size: 24px; font-weight: 700; color: #1e293b; }
@@ -330,4 +453,33 @@ export default {
 .ranking-table th:nth-child(2), .branch-name { text-align: left; font-weight: 500; color: #334155; }
 .ranking-table th:nth-child(3), .branch-amount { text-align: right; font-weight: 700; color: #1e293b; }
 .table-empty { text-align: center !important; color: #94a3b8; padding: 40px 0; }
+
+.card-value-group {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.growth-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* 상승(초록) / 하락(빨강) 스타일 */
+.growth-badge.up {
+  background-color: #ecfdf5;
+  color: #10b981;
+}
+
+.growth-badge.down {
+  background-color: #fef2f2;
+  color: #ef4444;
+}
 </style>
