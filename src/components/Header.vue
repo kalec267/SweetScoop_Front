@@ -1,181 +1,572 @@
 <template>
   <header class="main-header">
     <div class="header-right">
-      
-      <!-- 알림 벨 버튼 및 알림 레이어 -->
+      <!-- 알림 벨 -->
       <div class="notification-container">
-        <button class="icon-btn" @click="toggleNotification">
+        <button
+          type="button"
+          class="icon-btn"
+          @click="toggleNotification"
+        >
           <span class="icon">🔔</span>
-          <span v-if="hasNewNotification" class="badge-dot"></span>
+
+          <span
+            v-if="hasNewNotification"
+            class="badge-dot"
+          ></span>
         </button>
 
-        <!-- 실시간 알림 드롭다운 박스 -->
-        <div v-if="showNotificationBox" class="notification-box" @click.stop>
+        <!-- 알림 드롭다운 -->
+        <div
+          v-if="showNotificationBox"
+          class="notification-box"
+          @click.stop
+        >
           <div class="noti-header">
-            <span>실시간 주문 알림</span>
-            <span style="font-size: 11px; color: #94a3b8; font-weight: normal;">클릭하면 삭제됩니다</span>
+            <span>실시간 알림</span>
+
+            <span class="noti-guide">
+              클릭하면 삭제됩니다
+            </span>
           </div>
+
           <div class="noti-body">
-            <div 
-              v-for="(noti, idx) in notifications" 
-              :key="idx" 
+            <div
+              v-for="(noti, index) in notifications"
+              :key="noti.id"
               class="noti-item clickable"
-              @click="removeNotification(idx)"
               title="클릭하여 알림 지우기"
+              @click="removeNotification(index)"
             >
-              {{ noti }}
+              <span class="noti-type">
+                {{ noti.type }}
+              </span>
+
+              <p>
+                {{ noti.message }}
+              </p>
+
+              <small>
+                {{ noti.receivedAt }}
+              </small>
             </div>
-            <div v-if="notifications.length === 0" class="noti-empty">
+
+            <div
+              v-if="notifications.length === 0"
+              class="noti-empty"
+            >
               새로운 알림이 없습니다.
             </div>
           </div>
         </div>
       </div>
-      
-      <!-- 관리자 드롭다운 컨테이너 -->
+
+      <!-- 관리자 프로필 -->
       <div class="profile-dropdown-container">
-        <button class="profile-btn" @click="toggleDropdown">
+        <button
+          type="button"
+          class="profile-btn"
+          @click="toggleDropdown"
+        >
           <span class="avatar-circle">관</span>
+
           <span class="admin-name">
-            {{ userRole === 'HQ' ? '총 관리자 ▾' : '분점 관리자 ▾' }}
+            {{ userRole === "HQ"
+              ? "총 관리자 ▾"
+              : "분점 관리자 ▾"
+            }}
           </span>
         </button>
 
-        <div v-if="isDropdownOpen" class="admin-dropdown-menu">
+        <!-- 관리자 메뉴 -->
+        <div
+          v-if="isDropdownOpen"
+          class="admin-dropdown-menu"
+          @click.stop
+        >
           <div class="dropdown-header">
-            {{ userRole === 'HQ' ? '본점 · 슈퍼관리자님' : '스윗스쿱 강남역점님' }}
+            {{
+              userRole === "HQ"
+                ? "본점 · 슈퍼관리자님"
+                : `${username || "분점 관리자"}님`
+            }}
           </div>
+
           <hr />
 
-          <template v-if="userRole === 'BRANCH'">
-            <router-link to="/branch/dashboard" class="dropdown-item" @click="isDropdownOpen = false">🏠 지점 홈</router-link>
+          <!-- 본점 관리자 메뉴 -->
+          <template v-if="userRole === 'HQ'">
+            <router-link
+              to="/menu-management"
+              class="dropdown-item"
+              @click="closeDropdown"
+            >
+              🍒 맛 관리
+            </router-link>
+
+            <router-link
+              to="/event-management"
+              class="dropdown-item"
+              @click="closeDropdown"
+            >
+              🎁 이벤트 / 배너 관리
+            </router-link>
+
+            <router-link
+              to="/inquiries"
+              class="dropdown-item"
+              @click="closeDropdown"
+            >
+              💬 지점문의 답변
+            </router-link>
+          </template>
+
+          <!-- 분점 관리자 메뉴 -->
+          <template v-else>
+            <router-link
+              to="/branch/dashboard"
+              class="dropdown-item"
+              @click="closeDropdown"
+            >
+              🏠 지점 홈
+            </router-link>
           </template>
 
           <hr />
-          <button class="dropdown-item logout-btn" @click="handleLogout">🔒 로그아웃</button>
+
+          <button
+            type="button"
+            class="dropdown-item logout-btn"
+            @click="handleLogout"
+          >
+            🔒 로그아웃
+          </button>
         </div>
       </div>
-      
     </div>
   </header>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { db } from '@/api/firebase';
-import { collection, query, onSnapshot } from "firebase/firestore";
+import {
+  onMounted,
+  onUnmounted,
+  ref
+} from "vue";
+
+import { useRouter } from "vue-router";
+
+import {
+  collection,
+  onSnapshot,
+  query
+} from "firebase/firestore";
+
+import { db } from "@/api/firebase";
 
 const router = useRouter();
 
+/*
+ * 관리자 정보
+ */
+const userRole = ref("");
+const username = ref("");
+
+/*
+ * 알림 상태
+ */
 const notifications = ref([]);
 const showNotificationBox = ref(false);
 const hasNewNotification = ref(false);
 
+/*
+ * 관리자 메뉴 상태
+ */
 const isDropdownOpen = ref(false);
-const userRole = ref('');
 
+/*
+ * Firebase 구독 해제 함수
+ */
+let unsubscribeOrders = null;
+
+/*
+ * SSE 연결 객체
+ */
+let sseSource = null;
+
+/*
+ * 알림 고유 ID 생성
+ */
+const createNotificationId = () => {
+  return `${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 9)}`;
+};
+
+/*
+ * 현재 시각 표시
+ */
+const getCurrentTime = () => {
+  return new Intl.DateTimeFormat(
+    "ko-KR",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    }
+  ).format(new Date());
+};
+
+/*
+ * 공통 알림 추가 함수
+ */
+const addNotification = (
+  message,
+  type = "알림"
+) => {
+  notifications.value.unshift({
+    id: createNotificationId(),
+    type,
+    message,
+    receivedAt: getCurrentTime()
+  });
+
+  /*
+   * 알림 개수 제한
+   */
+  if (notifications.value.length > 30) {
+    notifications.value =
+      notifications.value.slice(0, 30);
+  }
+
+  hasNewNotification.value = true;
+};
+
+/*
+ * 관리자 메뉴 토글
+ */
 const toggleDropdown = (event) => {
   event.stopPropagation();
-  isDropdownOpen.value = !isDropdownOpen.value;
+
+  isDropdownOpen.value =
+    !isDropdownOpen.value;
+
   if (isDropdownOpen.value) {
     showNotificationBox.value = false;
   }
 };
 
+/*
+ * 관리자 메뉴 닫기
+ */
+const closeDropdown = () => {
+  isDropdownOpen.value = false;
+};
+
+/*
+ * 알림창 토글
+ */
 const toggleNotification = (event) => {
   event.stopPropagation();
-  showNotificationBox.value = !showNotificationBox.value;
+
+  showNotificationBox.value =
+    !showNotificationBox.value;
+
   if (showNotificationBox.value) {
     isDropdownOpen.value = false;
     hasNewNotification.value = false;
   }
 };
 
-const removeNotification = (idx) => {
-  notifications.value.splice(idx, 1);
+/*
+ * 알림 하나 삭제
+ */
+const removeNotification = (index) => {
+  notifications.value.splice(index, 1);
+
+  if (notifications.value.length === 0) {
+    hasNewNotification.value = false;
+  }
 };
 
+/*
+ * 외부 클릭 시 팝업 닫기
+ */
 const closeAllPopups = () => {
   isDropdownOpen.value = false;
   showNotificationBox.value = false;
 };
 
+/*
+ * 로그아웃
+ */
 const handleLogout = () => {
-  if (confirm("로그아웃 하시겠습니까?")) {
-    isDropdownOpen.value = false;
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('username');
-    router.push('/login');
+  const confirmed =
+    window.confirm(
+      "로그아웃 하시겠습니까?"
+    );
+
+  if (!confirmed) {
+    return;
   }
+
+  isDropdownOpen.value = false;
+
+  localStorage.removeItem("userRole");
+  localStorage.removeItem("username");
+  localStorage.removeItem("branchId");
+  localStorage.removeItem("adminId");
+  localStorage.removeItem("accessToken");
+
+  router.push("/login");
 };
 
-// 💡 띵동 차임벨 재생 함수
+/*
+ * 띵동 알림음
+ */
 const playDingDongSound = () => {
   try {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const playTone = (frequency, startTime, duration) => {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(frequency, audioCtx.currentTime + startTime);
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime + startTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + startTime + duration);
-      
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      
-      osc.start(audioCtx.currentTime + startTime);
-      osc.stop(audioCtx.currentTime + startTime + duration);
+    const AudioContextClass =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+    if (!AudioContextClass) {
+      return;
+    }
+
+    const audioContext =
+      new AudioContextClass();
+
+    const playTone = (
+      frequency,
+      startTime,
+      duration
+    ) => {
+      const oscillator =
+        audioContext.createOscillator();
+
+      const gain =
+        audioContext.createGain();
+
+      oscillator.type = "sine";
+
+      oscillator.frequency.setValueAtTime(
+        frequency,
+        audioContext.currentTime +
+          startTime
+      );
+
+      gain.gain.setValueAtTime(
+        0.3,
+        audioContext.currentTime +
+          startTime
+      );
+
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        audioContext.currentTime +
+          startTime +
+          duration
+      );
+
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+
+      oscillator.start(
+        audioContext.currentTime +
+          startTime
+      );
+
+      oscillator.stop(
+        audioContext.currentTime +
+          startTime +
+          duration
+      );
     };
 
     playTone(659.25, 0, 0.4);
     playTone(523.25, 0.35, 0.6);
   } catch (error) {
-    console.log("오디오 재생 중 오류가 발생했습니다.", error);
+    console.error(
+      "알림음 재생 실패:",
+      error
+    );
   }
 };
 
-let unsubscribeOrders = null;
-
-onMounted(() => {
-  window.addEventListener('click', closeAllPopups);
-  userRole.value = localStorage.getItem('userRole') || 'HQ';
-
-  // 💡 최초 로딩 시 기존 데이터로 인한 중복 소리 방지 플래그
+/*
+ * Firebase 주문 알림 연결
+ */
+const connectFirebaseOrders = () => {
   let isInitialLoad = true;
 
-  const ordersQuery = query(collection(db, "orders"));
-  unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
-    // 첫 스냅샷(기존 데이터 로딩)은 소리 안 나게 통과시킴
-    if (isInitialLoad) {
-      isInitialLoad = false;
+  const ordersQuery = query(
+    collection(db, "orders")
+  );
+
+  unsubscribeOrders = onSnapshot(
+    ordersQuery,
+
+    (snapshot) => {
+      /*
+       * 최초 기존 데이터 로딩은 알림 제외
+       */
+      if (isInitialLoad) {
+        isInitialLoad = false;
+        return;
+      }
+
+      snapshot
+        .docChanges()
+        .forEach((change) => {
+          if (change.type !== "added") {
+            return;
+          }
+
+          const newOrder =
+            change.doc.data();
+
+          const orderNo =
+            newOrder.orderNo ||
+            newOrder.orderId ||
+            "알 수 없음";
+
+          const waitingNo =
+            newOrder.waitingNo ?? "-";
+
+          const message =
+            `[새 주문] 주문번호 #${orderNo} ` +
+            `(웨이팅 ${waitingNo}번) 접수`;
+
+          playDingDongSound();
+
+          addNotification(
+            message,
+            "Firebase 주문"
+          );
+        });
+    },
+
+    (error) => {
+      console.error(
+        "Firebase 주문 알림 연결 실패:",
+        error
+      );
+    }
+  );
+};
+
+/*
+ * SSE 알림 연결
+ */
+const connectSse = () => {
+  /*
+   * 로그인 시 저장한 관리자 ID 사용
+   */
+  const savedAdminId =
+    localStorage.getItem("adminId");
+
+  /*
+   * 관리자 ID가 없으면 역할에 따라 기본값 사용
+   */
+  const adminId =
+    savedAdminId ||
+    (
+      userRole.value === "HQ"
+        ? "main_hq"
+        : username.value
+    );
+
+  if (!adminId) {
+    console.warn(
+      "SSE 연결에 사용할 관리자 ID가 없습니다."
+    );
+
+    return;
+  }
+
+  const url =
+    `/api/admin/sse/connect` +
+    `?adminId=${encodeURIComponent(adminId)}`;
+
+  sseSource = new EventSource(url);
+
+  /*
+   * 백엔드에서 event: notification으로 전송
+   */
+  sseSource.addEventListener(
+    "notification",
+    (event) => {
+      addNotification(
+        event.data,
+        "관리자 알림"
+      );
+
+      playDingDongSound();
+    }
+  );
+
+  /*
+   * 백엔드에서 기본 message 이벤트로 전송하는 경우
+   */
+  sseSource.onmessage = (event) => {
+    if (!event.data) {
       return;
     }
 
-    // 이후부터 실제로 새로 추가되는 주문에만 반응
-    snapshot.docChanges().forEach((change) => {
-      if (change.type === "added") {
-        const newOrder = change.doc.data();
+    addNotification(
+      event.data,
+      "실시간 알림"
+    );
+  };
 
-        // 1. 진짜 새 주문일 때만 띵동 소리 재생
-        playDingDongSound();
+  sseSource.onopen = () => {
+    console.log(
+      `SSE 연결 성공: ${adminId}`
+    );
+  };
 
-        // 2. 헤더 알림 리스트에 추가
-        const message = `[새 주문] 주문번호 #${newOrder.orderNo || '알수없음'} (웨이팅 ${newOrder.waitingNo || '-'}번) 접수`;
-        notifications.value.unshift(message);
+  sseSource.onerror = (error) => {
+    console.error(
+      "SSE 연결 오류:",
+      error
+    );
+  };
+};
 
-        // 3. 벨 아이콘 빨간 점 활성화
-        hasNewNotification.value = true;
-      }
-    });
-  });
+onMounted(() => {
+  window.addEventListener(
+    "click",
+    closeAllPopups
+  );
+
+  userRole.value =
+    localStorage.getItem("userRole") ||
+    "HQ";
+
+  username.value =
+    localStorage.getItem("username") ||
+    "";
+
+  connectFirebaseOrders();
+  connectSse();
 });
 
 onUnmounted(() => {
-  window.removeEventListener('click', closeAllPopups);
-  if (unsubscribeOrders) unsubscribeOrders();
+  window.removeEventListener(
+    "click",
+    closeAllPopups
+  );
+
+  if (unsubscribeOrders) {
+    unsubscribeOrders();
+    unsubscribeOrders = null;
+  }
+
+  if (sseSource) {
+    sseSource.close();
+    sseSource = null;
+  }
 });
 </script>
 
@@ -188,169 +579,260 @@ onUnmounted(() => {
   padding: 0 30px;
   background: transparent;
 }
+
 .header-right {
   display: flex;
   align-items: center;
   gap: 20px;
 }
+
+/* 알림 버튼 */
+
 .notification-container {
   position: relative;
 }
+
 .icon-btn {
-  background: white;
-  border: 1px solid #e2e8f0;
   width: 36px;
   height: 36px;
-  border-radius: 50%;
-  cursor: pointer;
   position: relative;
   display: flex;
-  align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  align-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    transform 0.2s;
 }
+
 .icon-btn:hover {
   background: #f8fafc;
+  transform: translateY(-1px);
 }
+
 .badge-dot {
   width: 8px;
   height: 8px;
-  background: #ff4081;
-  border-radius: 50%;
   position: absolute;
   top: 2px;
   right: 2px;
   border: 1.5px solid white;
+  border-radius: 50%;
+  background: #ff4081;
 }
+
+/* 알림 팝업 */
+
 .notification-box {
+  width: 320px;
+  max-height: 380px;
   position: absolute;
-  right: 0;
   top: 45px;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  width: 280px;
-  max-height: 350px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  right: 0;
   z-index: 100;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  box-shadow:
+    0 10px 25px
+    rgba(0, 0, 0, 0.12);
 }
+
 .noti-header {
   padding: 12px 16px;
-  font-weight: 600;
-  font-size: 14px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #1e293b;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 600;
 }
+
+.noti-guide {
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 400;
+}
+
 .noti-body {
+  max-height: 320px;
   overflow-y: auto;
-  max-height: 290px;
 }
+
 .noti-item {
   padding: 12px 16px;
-  font-size: 13px;
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
   color: #475569;
-  line-height: 1.4;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }
+
+.noti-item:last-child {
+  border-bottom: 0;
+}
+
 .noti-item.clickable {
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
 }
+
 .noti-item.clickable:hover {
-  background-color: #fdf2f8;
+  background: #fdf2f8;
   color: #d13b7d;
 }
-.noti-item:last-child {
-  border-bottom: none;
+
+.noti-type {
+  display: inline-flex;
+  margin-bottom: 5px;
+  padding: 3px 7px;
+  border-radius: 10px;
+  background: #f3e8ff;
+  color: #6f42c1;
+  font-size: 9px;
+  font-weight: 700;
 }
-.noti-empty {
-  padding: 24px 0;
-  text-align: center;
+
+.noti-item p {
+  margin: 0;
   font-size: 13px;
-  color: #94a3b8;
+  line-height: 1.5;
 }
+
+.noti-item small {
+  display: block;
+  margin-top: 5px;
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.noti-empty {
+  padding: 30px 0;
+  color: #94a3b8;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 관리자 프로필 */
+
 .profile-dropdown-container {
   position: relative;
 }
+
 .profile-btn {
+  padding: 6px 14px;
   display: flex;
   align-items: center;
   gap: 8px;
-  background: white;
   border: 1px solid #e2e8f0;
-  padding: 6px 14px;
   border-radius: 20px;
+  background: white;
   cursor: pointer;
   transition: background 0.2s;
 }
+
 .profile-btn:hover {
   background: #f8fafc;
 }
+
 .avatar-circle {
   width: 24px;
   height: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
   background: #6f42c1;
   color: white;
-  border-radius: 50%;
   font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   font-weight: bold;
 }
+
 .admin-name {
+  color: #334155;
   font-size: 13px;
   font-weight: 600;
-  color: #334155;
 }
+
+/* 관리자 드롭다운 */
+
 .admin-dropdown-menu {
+  width: 210px;
   position: absolute;
-  right: 0;
   top: 45px;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  width: 180px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  right: 0;
   z-index: 100;
   padding: 6px 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  box-shadow:
+    0 10px 25px
+    rgba(0, 0, 0, 0.12);
 }
+
 .dropdown-header {
   padding: 10px 16px;
+  color: #64748b;
   font-size: 13px;
   font-weight: 600;
-  color: #64748b;
 }
+
 .dropdown-item {
-  display: block;
   width: 100%;
-  text-align: left;
   padding: 10px 16px;
-  font-size: 13px;
-  color: #334155;
-  text-decoration: none;
-  border: none;
-  background: none;
-  cursor: pointer;
+  display: block;
   box-sizing: border-box;
+  border: 0;
+  background: none;
+  color: #334155;
+  font-size: 13px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
 }
+
 .dropdown-item:hover {
   background: #f8fafc;
-  color: #d13b7d;
+  color: #6f42c1;
 }
+
 .logout-btn {
   color: #dc2626;
   font-weight: 600;
 }
+
 hr {
+  margin: 4px 0;
   border: 0;
   border-top: 1px solid #f1f5f9;
-  margin: 4px 0;
+}
+
+@media (max-width: 600px) {
+  .main-header {
+    padding: 0 14px;
+  }
+
+  .header-right {
+    gap: 10px;
+  }
+
+  .notification-box {
+    width: min(
+      320px,
+      calc(100vw - 28px)
+    );
+    right: -120px;
+  }
+
+  .admin-dropdown-menu {
+    width: 190px;
+  }
 }
 </style>
