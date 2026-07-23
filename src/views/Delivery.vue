@@ -118,11 +118,11 @@
           <tbody>
             <tr
               v-for="item in filteredDeliveryList"
-              :key="item.requestId"
+              :key="item.id || item.hqInventoryId || item.requestId"
             >
               <td>
                 <span class="request-id">
-                  #DEL-{{ item.requestId }}
+                  #DEL-{{ item.id || item.hqInventoryId || item.requestId }}
                 </span>
               </td>
 
@@ -140,22 +140,22 @@
               <td>
                 <div class="product-cell">
                   <span class="product-icon">🍦</span>
-                  <span>{{ item.requestMenu }}</span>
+                  <span>{{ item.itemName || item.requestMenu }}</span>
                 </div>
               </td>
 
               <td>
-                <strong>{{ item.quantity }}</strong>
+                <strong>{{ item.requestQuantity || item.quantity }}</strong>
                 <span class="quantity-unit">개</span>
               </td>
 
               <td>
                 <span
                   class="status-badge"
-                  :class="getStatusClass(item.deliveryStatus)"
+                  :class="getStatusClass(getDeliveryStatus(item))"
                 >
                   <span class="status-dot"></span>
-                  {{ item.deliveryStatus || "준비중" }}
+                  {{ getDeliveryStatus(item) }}
                 </span>
               </td>
 
@@ -164,10 +164,10 @@
                   v-if="getDeliveryStatus(item) === '준비중'"
                   type="button"
                   class="action-button shipping-button"
-                  :disabled="updatingId === item.requestId"
+                  :disabled="updatingId === (item.id || item.hqInventoryId || item.requestId)"
                   @click="
                     updateDelivery(
-                      item.requestId,
+                      item.id || item.hqInventoryId || item.requestId,
                       '배송중'
                     )
                   "
@@ -182,10 +182,10 @@
                   "
                   type="button"
                   class="action-button complete-button"
-                  :disabled="updatingId === item.requestId"
+                  :disabled="updatingId === (item.id || item.hqInventoryId || item.requestId)"
                   @click="
                     updateDelivery(
-                      item.requestId,
+                      item.id || item.hqInventoryId || item.requestId,
                       '배송완료'
                     )
                   "
@@ -223,63 +223,83 @@ const selectedStatus = ref("ALL");
 const isLoading = ref(false);
 const updatingId = ref(null);
 
+// DB의 한글("배송중", "배송완료", "준비중") 및 영문 상태값을 한글 표준 명칭으로 정확히 매핑
 const getDeliveryStatus = (item) => {
-  return item.deliveryStatus || "준비중";
+  if (!item) return "준비중";
+
+  // deliveryStatus 또는 status 키에서 값을 추출
+  const raw = item.deliveryStatus || item.status || "";
+  const status = String(raw).trim();
+
+  if (status === "배송완료" || status === "DELIVERED" || status === "ARRIVED" || status === "COMPLETED") {
+    return "배송완료";
+  }
+
+  if (status === "배송중" || status === "IN_TRANSIT" || status === "SHIPPED" || status === "SHIPPING") {
+    return "배송중";
+  }
+
+  return "준비중";
 };
 
 const preparingCount = computed(() => {
   return deliveryList.value.filter(
-    (item) =>
-      getDeliveryStatus(item) === "준비중"
+    (item) => getDeliveryStatus(item) === "준비중"
   ).length;
 });
 
 const shippingCount = computed(() => {
   return deliveryList.value.filter(
-    (item) =>
-      getDeliveryStatus(item) === "배송중"
+    (item) => getDeliveryStatus(item) === "배송중"
   ).length;
 });
 
 const completedCount = computed(() => {
   return deliveryList.value.filter(
-    (item) =>
-      getDeliveryStatus(item) === "배송완료"
+    (item) => getDeliveryStatus(item) === "배송완료"
   ).length;
 });
 
+// 검색, 필터링 및 정렬 (준비중 -> 배송중 -> 배송완료 순배치, 동일 상태에서는 최신순)
 const filteredDeliveryList = computed(() => {
-  const keyword =
-    searchKeyword.value.toLowerCase();
+  const keyword = searchKeyword.value.toLowerCase();
 
-  return deliveryList.value.filter((item) => {
-    const branchName = String(
-      item.branchName || ""
-    ).toLowerCase();
-
-    const requestMenu = String(
-      item.requestMenu || ""
-    ).toLowerCase();
-
-    const deliveryStatus =
-      getDeliveryStatus(item);
+  const filtered = deliveryList.value.filter((item) => {
+    const branchName = String(item.branchName || "").toLowerCase();
+    const requestMenu = String(item.itemName || item.requestMenu || "").toLowerCase();
+    const deliveryStatus = getDeliveryStatus(item);
 
     const matchesKeyword =
-      !keyword ||
-      branchName.includes(keyword) ||
-      requestMenu.includes(keyword);
+      !keyword || branchName.includes(keyword) || requestMenu.includes(keyword);
 
     const matchesStatus =
-      selectedStatus.value === "ALL" ||
-      deliveryStatus === selectedStatus.value;
+      selectedStatus.value === "ALL" || deliveryStatus === selectedStatus.value;
 
     return matchesKeyword && matchesStatus;
+  });
+
+  const statusPriority = {
+    "준비중": 1,
+    "배송중": 2,
+    "배송완료": 3
+  };
+
+  return filtered.sort((a, b) => {
+    const priorityA = statusPriority[getDeliveryStatus(a)] || 99;
+    const priorityB = statusPriority[getDeliveryStatus(b)] || 99;
+
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB; // 배송 완료건은 맨 아래로 배치
+    }
+
+    const idA = a.id || a.hqInventoryId || a.requestId || 0;
+    const idB = b.id || b.hqInventoryId || b.requestId || 0;
+    return idB - idA;
   });
 });
 
 const getStatusClass = (status) => {
-  const normalizedStatus =
-    status || "준비중";
+  const normalizedStatus = status || "준비중";
 
   if (normalizedStatus === "준비중") {
     return "status-preparing";
@@ -300,88 +320,49 @@ const fetchDeliveries = async () => {
   isLoading.value = true;
 
   try {
-    const response = await api.get(
-      "/api/admin/inventory/requests"
+    const response = await api.get("/api/admin/inventory/requests");
+    const responseData = Array.isArray(response.data) ? response.data : [];
+
+    // 반려(REJECTED) 건을 제외하고 전체 목록 셋팅
+    deliveryList.value = responseData.filter(
+      (item) => item.approvalStatus !== "REJECTED"
     );
 
-    const responseData = Array.isArray(
-      response.data
-    )
-      ? response.data
-      : [];
-
-    deliveryList.value =
-      responseData.filter(
-        (item) =>
-          item.status !== "대기중" &&
-          item.status !== "반려"
-      );
   } catch (error) {
-    console.error(
-      "배송 목록 조회 실패:",
-      error
-    );
-
-    window.alert(
-      "배송 목록을 불러오지 못했습니다."
-    );
-
+    console.error("배송 목록 조회 실패:", error);
     deliveryList.value = [];
   } finally {
     isLoading.value = false;
   }
 };
 
-const updateDelivery = async (
-  id,
-  status
-) => {
-  const confirmed = window.confirm(
-    `배송 상태를 [${status}]로 변경하시겠습니까?`
-  );
-
-  if (!confirmed) {
-    return;
-  }
+const updateDelivery = async (id, status) => {
+  const confirmed = window.confirm(`배송 상태를 [${status}]로 변경하시겠습니까?`);
+  if (!confirmed) return;
 
   updatingId.value = id;
 
   try {
-    await api.patch(
-      `/api/admin/inventory/requests/${id}/delivery`,
-      {
-        deliveryStatus: status,
-      }
+    // 백엔드로 PATCH 요청 전송
+    await api.patch(`/api/admin/inventory/requests/${id}/delivery`, {
+      deliveryStatus: status,
+    });
+
+    // 성공 후 로컬 데이터 리스트의 상태값을 변경된 상태('배송중' / '배송완료')로 강제 업데이트
+    const target = deliveryList.value.find(
+      (item) => (item.requestId || item.hqInventoryId || item.id) === id
     );
 
-    const targetItem =
-      deliveryList.value.find(
-        (item) => item.requestId === id
-      );
-
-    if (targetItem) {
-      targetItem.deliveryStatus = status;
+    if (target) {
+      target.status = status;
+      target.deliveryStatus = status;
     }
 
-    window.alert(
-      `배송 상태가 [${status}]로 변경되었습니다.`
-    );
+    window.alert(`배송 상태가 [${status}]로 변경되었습니다.`);
+
   } catch (error) {
-    console.error(
-      "배송 상태 변경 실패:",
-      error
-    );
-
-    const responseData =
-      error.response?.data;
-
-    const message =
-      typeof responseData === "string"
-        ? responseData
-        : responseData?.message ||
-          "배송 상태 변경에 실패했습니다.";
-
-    window.alert(message);
+    console.error("배송 상태 변경 실패:", error);
+    window.alert("배송 상태 변경에 실패했습니다.");
   } finally {
     updatingId.value = null;
   }
@@ -465,8 +446,7 @@ onMounted(() => {
   margin-bottom: 26px;
 
   display: grid;
-  grid-template-columns:
-    repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -482,9 +462,7 @@ onMounted(() => {
   border-radius: 14px;
   background: white;
 
-  box-shadow:
-    0 4px 14px
-    rgba(15, 23, 42, 0.04);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
 }
 
 .summary-icon {
@@ -534,9 +512,7 @@ onMounted(() => {
   border-radius: 16px;
 
   background: white;
-  box-shadow:
-    0 8px 24px
-    rgba(15, 23, 42, 0.04);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
 }
 
 .table-toolbar {
@@ -826,8 +802,7 @@ tbody tr:last-child td {
 
 @media (max-width: 1100px) {
   .summary-grid {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .table-toolbar {
