@@ -27,7 +27,6 @@
       <div class="profile-dropdown-container">
         <button class="profile-btn" @click="toggleDropdown">
           <span class="avatar-circle">관</span>
-          <!-- 💡 권한에 따라 노출되는 이름 변경 -->
           <span class="admin-name">
             {{ userRole === 'HQ' ? '총 관리자 ▾' : '분점 관리자 ▾' }}
           </span>
@@ -35,24 +34,17 @@
 
         <!-- 드롭다운 리스트 박스 -->
         <div v-if="isDropdownOpen" class="admin-dropdown-menu">
-          <!-- 💡 권한에 따라 드롭다운 헤더 텍스트 분기 -->
           <div class="dropdown-header">
             {{ userRole === 'HQ' ? '본점 · 슈퍼관리자님' : '스윗스쿱 강남역점님' }}
           </div>
           <hr />
 
-          <!-- 💡 [본사 관리자 HQ 전용 바로가기 링크] -->
           <template v-if="userRole === 'HQ'">
-            <!-- <router-link to="/menu-management" class="dropdown-item" @click="isDropdownOpen = false">🍒 맛 관리</router-link> -->
-            <!-- <router-link to="/event-management" class="dropdown-item" @click="isDropdownOpen = false">🎁 이벤트 / 배너 관리</router-link>
-            <router-link to="/inquiries" class="dropdown-item" @click="isDropdownOpen = false">💬 지점문의 답변</router-link> -->
+            <!-- HQ 메뉴 -->
           </template>
 
-          <!-- 💡 [분점 관리자 BRANCH 전용 바로가기 링크] -->
           <template v-else-if="userRole === 'BRANCH'">
             <router-link to="/branch/dashboard" class="dropdown-item" @click="isDropdownOpen = false">🏠 지점 홈</router-link>
-            <!-- <router-link to="/branch/inventory" class="dropdown-item" @click="isDropdownOpen = false">🍦 실시간 재고 관리</router-link>
-            <router-link to="/branch/order-request" class="dropdown-item" @click="isDropdownOpen = false">📨 발주 신청</router-link> -->
           </template>
 
           <hr />
@@ -67,24 +59,69 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
+import axios from 'axios';
 
 const router = useRouter();
 
-// 알림 관련 상태
 const notifications = ref([]);
 const showNotificationBox = ref(false);
 const hasNewNotification = ref(false);
 let sseSource = null;
 
-// 관리자 프로필 및 권한 상태
 const isDropdownOpen = ref(false);
-const userRole = ref(''); // 👈 로컬스토리지에서 읽어올 권한 ('HQ' 또는 'BRANCH')
+const userRole = ref('');
+
+// 💡 [수정] 백엔드 SseController 경로(/api/admin/sse/notifications)와 맞춤
+const fetchPreviousNotifications = async (role) => {
+  try {
+    const res = await axios.get(`/api/admin/sse/notifications?role=${role}`);
+    notifications.value = res.data.map(item => item.message);
+  } catch (err) {
+    console.error('기존 알림 조회 실패:', err);
+  }
+};
+
+onMounted(async () => {
+  window.addEventListener('click', closeAllPopups);
+
+  // 로컬 스토리지 권한 읽기 (기본값 설정)
+  userRole.value = localStorage.getItem('userRole') || 'HQ';
+  const username = localStorage.getItem('username') || 'admin_' + Date.now();
+
+  // 1. 기존 DB 알림 목록 불러오기 (새로고침 대응)
+  await fetchPreviousNotifications(userRole.value);
+
+  // 2. 본사 관리자("HQ")일 때만 HQ 채널로 SSE 연결
+  if (userRole.value === 'HQ') {
+    // 💡 [수정] 백엔드 SseController의 @RequestParam("adminId") 파라미터명과 매칭
+    sseSource = new EventSource(`/api/admin/sse/connect?role=HQ&adminId=${username}`);
+
+    sseSource.addEventListener('notification', (event) => {
+      notifications.value.unshift(event.data);
+      hasNewNotification.value = true;
+    });
+  } 
+  // 3. 분점 관리자("BRANCH")일 때는 BRANCH 전용 채널로 연결 (HQ용 알림 수신 방지)
+  else if (userRole.value === 'BRANCH') {
+    sseSource = new EventSource(`/api/admin/sse/connect?role=BRANCH&adminId=${username}`);
+
+    sseSource.addEventListener('notification', (event) => {
+      notifications.value.unshift(event.data);
+      hasNewNotification.value = true;
+    });
+  }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeAllPopups);
+  if (sseSource) {
+    sseSource.close();
+  }
+});
 
 const toggleDropdown = (event) => {
-  console.log("dropdown click");
   event.stopPropagation();
   isDropdownOpen.value = !isDropdownOpen.value;
-  console.log(isDropdownOpen.value);
   if (isDropdownOpen.value) {
     showNotificationBox.value = false;
   }
@@ -100,7 +137,6 @@ const toggleNotification = (event) => {
 };
 
 const closeAllPopups = () => {
-  console.log("closeAllPopups");
   isDropdownOpen.value = false;
   showNotificationBox.value = false;
 };
@@ -108,37 +144,14 @@ const closeAllPopups = () => {
 const handleLogout = () => {
   if (confirm("로그아웃 하시겠습니까?")) {
     isDropdownOpen.value = false;
-    // 💡 로그아웃 시 로컬스토리지 데이터 완전 청소
     localStorage.removeItem('userRole');
     localStorage.removeItem('username');
     router.push('/login');
   }
 };
-
-onMounted(() => {
-  window.addEventListener('click', closeAllPopups);
-
-  // 💡 로컬 스토리지에 저장된 유저 권한 획득하여 동적 바인딩 준비
-  userRole.value = localStorage.getItem('userRole') || 'HQ';
-
-  // SSE 연결 열기 (본사 어드민 로그인 계정 기준)
-  sseSource = new EventSource('/api/admin/sse/connect?adminId=main_hq');
-
-  // 실시간 알림 수신 리스너 등록
-  sseSource.addEventListener('notification', (event) => {
-    notifications.value.unshift(event.data);
-    hasNewNotification.value = true;
-  });
-});
-
-onUnmounted(() => {
-  window.removeEventListener('click', closeAllPopups);
-  if (sseSource) sseSource.close();
-});
 </script>
 
 <style scoped>
-/* 기존 스타일은 동일하게 유지됩니다 */
 .main-header {
   height: 60px;
   display: flex;
@@ -166,7 +179,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  transition: 0.2s;
 }
 .icon-btn:hover {
   background: #f8fafc;
@@ -235,7 +248,7 @@ onUnmounted(() => {
   padding: 6px 14px;
   border-radius: 20px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: 0.2s;
 }
 .profile-btn:hover {
   background: #f8fafc;
@@ -290,7 +303,7 @@ onUnmounted(() => {
 }
 .dropdown-item:hover {
   background: #f8fafc;
-  color: #d13b7d; /* 배스킨라빈스 오리지널 핑크 매칭 */
+  color: #d13b7d;
 }
 .logout-btn {
   color: #dc2626;
