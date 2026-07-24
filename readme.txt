@@ -49,3 +49,15 @@
  실시간 주문 내역 메뉴에 제조완료, 주문취소 기능 추가
  제조완료를 누를시 firebase에서 문서 자동 삭제
  주문취소를 누를시 firebase와 DB에서 데이터 자동 삭제
+
+260724
+
+-sidebar.vue, index.js(router), OrderHistory.vue
+실시간 키오스크 주문내역 페이지 연결
+
+-BranchDashboard.vue
+제조완료시 상태를 제조완료로 변경하고 현황에서는 안보이게 처리
+
+-OrderHistory.vue
+주문대기 상태일떄만 주문취소 버튼 뜨고 완료시에는 안보이게 처리
+

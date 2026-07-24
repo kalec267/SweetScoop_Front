@@ -20,6 +20,7 @@ import BranchManagement from "../views/admin/BranchManagement.vue";
 import CouponManagement from "../views/CouponManagement.vue";
 import Promotion from "../views/Promotion.vue";
 import KioskControlView from "../views/kioskControlView.vue"
+import OrderHistory from '@/views/OrderHistory.vue';
 import BranchInventoryView from "../views/inventory/BranchInventoryView.vue";
 import CS from '../views/CS.vue';
 import Notice from '../views/Notice.vue';
@@ -178,6 +179,14 @@ const routes = [
         name: "BranchDashboard",
         component: BranchDashboard,
         meta: {
+            requiresAuth: true,
+            role: "BRANCH"
+        }
+    }, {
+        path: '/branch/orders-history',
+        name: 'OrderHistory',
+        component: OrderHistory,
+        meta: { 
             requiresAuth: true,
             role: "BRANCH"
         }
