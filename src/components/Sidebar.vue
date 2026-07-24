@@ -272,7 +272,7 @@
               active-class="active"
             >
               <span class="menu-icon">🧾</span>
-              주문 취소 / 영수증
+              실시간 키오스크 주문관리
             </router-link>
           </div>
         </div>

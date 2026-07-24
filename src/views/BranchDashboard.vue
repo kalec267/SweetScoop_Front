@@ -1,4 +1,3 @@
-```vue
 <template>
   <div class="branch-dashboard">
     <div class="dashboard-header">
@@ -117,14 +116,14 @@
 
         <div class="order-list">
           <div
-            v-if="realtimeOrders.length === 0"
+            v-if="activeRealtimeOrders.length === 0"
             class="empty-state"
           >
             들어온 실시간 주문이 없습니다. 대기 중...
           </div>
 
           <div
-            v-for="order in realtimeOrders"
+            v-for="order in activeRealtimeOrders"
             :key="order.docId || order.orderId"
             class="order-item live-order-card"
             @click="toggleOrderDetail(order.orderId)"
@@ -528,7 +527,8 @@
 import {
   onMounted,
   onUnmounted,
-  ref
+  ref,
+  computed
 } from "vue";
 
 import axios from "../api/index.js";
@@ -537,6 +537,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  updateDoc,
   onSnapshot,
   query
 } from "firebase/firestore";
@@ -564,6 +565,11 @@ const isReceiptModalOpen = ref(false);
 const selectedReceipt = ref(null);
 
 let unsubscribeOrders = null;
+
+// 완료되지 않은 실시간 주문만 필터링 (대시보드 노출용)
+const activeRealtimeOrders = computed(() => {
+  return realtimeOrders.value.filter(order => order.status !== 'COMPLETED');
+});
 
 /*
  * 키오스크 목록 조회
@@ -1096,20 +1102,9 @@ const completeOrder = async (orderId) => {
 
   try {
     if (targetOrder.docId) {
-      await deleteDoc(
-        doc(
-          db,
-          "orders",
-          targetOrder.docId
-        )
-      );
+      const orderRef = doc(db, "orders", targetOrder.docId);
+      await updateDoc(orderRef, { status: 'COMPLETED' });
     }
-
-    realtimeOrders.value =
-      realtimeOrders.value.filter(
-        (order) =>
-          order.orderId !== orderId
-      );
   } catch (error) {
     console.error(
       "주문 완료 처리 실패:",
@@ -2076,4 +2071,3 @@ input:disabled + .slider {
   }
 }
 </style>
-```
