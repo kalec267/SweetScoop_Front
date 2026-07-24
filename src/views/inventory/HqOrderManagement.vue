@@ -42,15 +42,15 @@
             
             <!-- 승인 상태 배지 -->
             <td>
-              <span :class="['badge', isApproved(order) ? 'bg-success' : 'bg-warning']">
-                {{ isApproved(order) ? '승인 완료' : '승인 대기' }}
+              <span :class="['badge', order.approvalStatus === 'COMPLETED' ? 'bg-success' : 'bg-warning']">
+                {{ order.approvalStatus === 'COMPLETED' ? '승인 완료' : '승인 대기' }}
               </span>
             </td>
 
             <!-- 배송 상태 배지 -->
             <td>
               <span :class="['badge', getDeliveryBadgeClass(order.deliveryStatus)]">
-                {{ order.deliveryStatus || '미배송' }}
+                {{ getDeliveryStatusText(order.deliveryStatus) }}
               </span>
             </td>
 
@@ -215,19 +215,36 @@ export default {
 
     // 💡 발주 승인 처리
     async approveOrder(hqInventoryId) {
-      if (!confirm("해당 발주 건을 승인하시겠습니까?\n승인 완료 시 배송 관리 목록에 [준비중] 상태로 등록됩니다.")) return;
+    if (!confirm("해당 발주 건을 승인하시겠습니까?\n승인 시 본사 재고가 차감되며 '배송 준비' 상태로 전환됩니다.")) return;
 
-      try {
-        const response = await api.post(`/api/admin/branches/orders/${hqInventoryId}/approve`);
+    try {
+      const response = await api.post('/api/inventory/in/hq', null, {
+        params: { hqInventoryId }
+      });
 
-        if (response.status === 200) {
-          alert("✔ 발주가 정상적으로 승인되었습니다!");
-          this.fetchHqOrders(); // 목록 새로고침
-        }
-      } catch (error) {
-        const errorMsg = error.response?.data || "발주 승인 처리 중 에러가 발생했습니다.";
-        alert(`❌ 승인 실패: ${errorMsg}`);
+      if (response.status === 200) {
+        alert("발주 승인이 완료되었습니다. (배송 관리로 이관)");
+        this.fetchHqOrders(); 
       }
+    } catch (error) {
+      const errorMsg = error.response?.data || "발주 승인 처리 중 에러가 발생했습니다.";
+      alert(`❌ 승인 실패: ${errorMsg}`);
+    }
+    },
+
+      // 💡 2. 배송 상태 텍스트 헬퍼 함수
+    getDeliveryStatusText(status) {
+      if (!status) return '출고 준비중';
+      if (['ARRIVED', 'DELIVERED', '배송완료'].includes(status)) return '배송 완료';
+      if (['SHIPPING', '배송중'].includes(status)) return '배송 중';
+      return '출고 준비중';
+    },
+
+    // 💡 3. 배송 상태 뱃지 클래스 헬퍼 함수
+    getDeliveryBadgeClass(status) {
+      if (['ARRIVED', 'DELIVERED', '배송완료'].includes(status)) return 'bg-delivery-done';
+      if (['SHIPPING', '배송중'].includes(status)) return 'bg-delivery-ready';
+      return 'bg-delivery-ready';
     },
 
     async chargeStockFromFactory(itemId) {

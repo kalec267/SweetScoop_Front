@@ -233,25 +233,11 @@
     import {ref, computed, onMounted} from 'vue'
     import axios from 'axios'
 
-    
-
     const imageList = [
         {
             code: "POINT_EVENT",
             name: "포인트 적립 이벤트",
-            url: pointEvent
-        }, {
-            code: "NEW_MENU",
-            name: "딥다크",
-            url: dark
-        }, {
-            code: "NEW_MENU2",
-            name: "미러볼",
-            url: mirrorball
-        }, {
-            code: "NEW_MENU3",
-            name: "달아이스크림",
-            url: moon
+            url: "/images/event/point-event.png"
         }
     ]
     const getImageUrl = (imageCode) => {
