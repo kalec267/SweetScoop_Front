@@ -43,6 +43,10 @@
         <button :class="{ active: currentFilter === 'today' }" @click="setFilter('today')">오늘</button>
         <button :class="{ active: currentFilter === '7days' }" @click="setFilter('7days')">최근 7일</button>
         <button :class="{ active: currentFilter === '30days' }" @click="setFilter('30days')">최근 30일</button>
+
+        <button class="download-btn" @click="downloadCSV">
+            CSV 다운로드
+          </button>
       </div>
     </div>
 
@@ -401,7 +405,64 @@ export default {
     formatNumber(val) {
       if (val === undefined || val === null) return '0';
       return String(val).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    }
+    },
+
+    downloadCSV() {
+  if (!this.stats) {
+    alert('다운로드할 통계 데이터가 없습니다.');
+    return;
+  }
+
+  // 1. BOM 추가 (엑셀 한글 깨짐 방지)
+  let csvContent = '\uFEFF';
+  
+  csvContent += `== SweetScoop 매출 및 통계 리포트 ==\n`;
+  csvContent += `조회 지점,${this.selectedBranchId === 0 ? '전체 통합' : this.selectedBranchId + '번 지점'}\n`;
+  csvContent += `조회 기간,${this.startDate} ~ ${this.endDate}\n\n`;
+
+  // 2. 상단 요약 지표 (금액 전체를 큰따옴표로 감싸서 콤마로 인한 열 분리 방지)
+  csvContent += `[요약 지표]\n`;
+  csvContent += `구분,금액/비율\n`;
+  csvContent += `누적 매출액,"₩ ${this.formatNumber(this.stats.cumulativeSales)}"\n`;
+  csvContent += `추정 순이익,"₩ ${this.formatNumber(this.stats.netProfit)}"\n`;
+  csvContent += `순이익률 (마진율),"${this.stats.profitMargin || 0}%"\n`;
+  csvContent += `평균 객단가,"₩ ${this.formatNumber(this.stats.averageReceipt)}"\n\n`;
+
+  // 3. 골든 플레이버 TOP 5 랭킹
+  csvContent += `[인기 메뉴 TOP 5]\n순위,메뉴명,점유율\n`;
+  if (this.stats.topFlavors && this.stats.topFlavors.length > 0) {
+    this.stats.topFlavors.forEach((flavor, index) => {
+      // 메뉴명 내 콤마 방지 및 점유율 문자열 정리
+      const cleanName = String(flavor.name).replace(/"/g, '""');
+      csvContent += `${index + 1},"${cleanName}","${flavor.share}%"\n`;
+    });
+  } else {
+    csvContent += `-,데이터 없음,-\n`;
+  }
+  csvContent += `\n`;
+
+  // 4. 지점별 랭킹 (본사 통합 조회 시)
+  if (this.userRole === 'HQ' && this.selectedBranchId === 0 && this.stats.branchRanking) {
+    csvContent += `[지점별 매출 랭킹]\n순위,지점명,누적 매출액\n`;
+    this.stats.branchRanking.forEach((branch, index) => {
+      const cleanBranch = String(branch.branchName).replace(/"/g, '""');
+      csvContent += `${index + 1},"${cleanBranch}","₩ ${this.formatNumber(branch.totalAmount)}"\n`;
+    });
+  }
+
+  // 5. Blob 생성 및 파일 다운로드
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  
+  const branchNameStr = this.selectedBranchId === 0 ? '전체통합' : `${this.selectedBranchId}번지점`;
+  link.setAttribute('href', url);
+  link.setAttribute('download', `Sales_Report_${branchNameStr}_${this.startDate}.csv`);
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
   }
 };
 </script>
@@ -481,5 +542,18 @@ export default {
 .growth-badge.down {
   background-color: #fef2f2;
   color: #ef4444;
+}
+
+.download-btn {
+  background-color: #10b981 !important; /* 초록색 포인트 */
+  color: #fff !important;
+  border-color: #10b981 !important;
+  font-weight: 600 !important;
+  margin-left: 8px;
+}
+
+.download-btn:hover {
+  background-color: #059669 !important;
+  border-color: #059669 !important;
 }
 </style>
