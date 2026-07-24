@@ -35,6 +35,8 @@ import Header from "./components/Header.vue";
 
 const route = useRoute();
 
+
+
 /*
  * requiresAuth가 true인 관리자 페이지에서만
  * Sidebar와 Header를 표시합니다.

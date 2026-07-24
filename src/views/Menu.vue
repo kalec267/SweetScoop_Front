@@ -5,6 +5,10 @@
     import api from "../api/axios";
     import MenuCard from "../components/MenuCard.vue";
 
+    /* 0. 키오스크 기기 설정 (localStorage에서 동적 로드) */
+    const currentBranchId = Number(localStorage.getItem("branchId")) || 1;
+    const currentKioskId = Number(localStorage.getItem("kioskNo")) || 1;
+
     /* 1. Router와 URL 주문정보 */
 
     const route = useRoute();
@@ -309,8 +313,8 @@
         sessionStorage.setItem("cartData", JSON.stringify({
             orderType: orderType || "TAKEOUT",
             customerId: null,
-            branchId: 1,
-            kioskId: 1,
+            branchId: currentBranchId,
+            kioskId: currentKioskId,
             items: cartItems.value
         }));
     };
@@ -355,10 +359,10 @@
         orderData.customerId ?? null;
 
     orderData.branchId =
-        orderData.branchId ?? 1;
+        orderData.branchId ?? currentBranchId;
 
     orderData.kioskId =
-        orderData.kioskId ?? 1;
+        orderData.kioskId ?? currentKioskId;
 
     /*
      * 아이스크림 주문 저장
@@ -1082,8 +1086,8 @@
         const unifiedOrderData = {
             orderType: orderType || "TAKEOUT",
             customerId: null,
-            branchId: 1,
-            kioskId: 1,
+            branchId: currentBranchId,
+            kioskId: currentKioskId,
 
             items: cartItems
                 .value

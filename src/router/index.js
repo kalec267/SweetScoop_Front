@@ -3,6 +3,7 @@ import {createRouter, createWebHistory} from "vue-router";
 // ========================================== 키오스크 사용자 화면
 // ==========================================
 import Home from "../views/Home.vue";
+import KioskSetup from '../views/KioskSetup.vue';
 import IceCreamSize from "../views/IceCreamSize.vue";
 import CupSelect from "../views/CupSelect.vue";
 import Menu from "../views/Menu.vue";
@@ -33,6 +34,11 @@ import ItemEdit from "../views/ItemEdit.vue";
 const routes = [
     // ========================================== 키오스크 사용자 화면
     // ==========================================
+    {
+        path: '/setup',
+        name: 'setup',
+        component: KioskSetup
+      },
     {
         path: "/",
         name: "Home",
@@ -287,6 +293,19 @@ const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
     routes
 });
+router.beforeEach((to, from, next) => {
+    const branchId = localStorage.getItem('branchId');
+    const kioskNo = localStorage.getItem('kioskNo');
+  
+    // 관리자/로그인 경로(requiresAuth가 있는 경로 or /login)는 기기 등록 검사 대상에서 제외!
+  const isAdminRoute = to.matched.some(record => record.meta.requiresAuth) || to.path === '/login';
+    // 기기 설정이 안 되어 있는데 설정 페이지가 아닌 다른 곳으로 가려고 하면 /setup으로 보냄
+    if (!isAdminRoute && (!branchId || !kioskNo) && to.path !== '/setup') {
+        next('/setup');
+      } else {
+        next();
+      }
+  });
 
 /**
  * 사용자 권한에 맞는 기본 화면 반환
