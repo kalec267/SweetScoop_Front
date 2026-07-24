@@ -47,7 +47,7 @@
               </td>
               <td>
                 <span :class="order.deliveryStatus === 'ARRIVED' ? 'badge-blue' : 'badge-gray'">
-                  {{ order.deliveryStatus === 'ARRIVED' ? '배송 완료' : '배송 준비 중' }}
+                  {{ order.deliveryStatus === 'ARRIVED' ? '배송 완료' : (order.deliveryStatus === 'SHIPPING' ? '배송 중' : '배송 준비 중') }}
                 </span>
               </td>
             </tr>
