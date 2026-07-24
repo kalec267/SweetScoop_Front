@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
         "/api/inventory": {
           target:
             env.VITE_INVENTORY_API_URL ||
-            "http://localhost:8888",
+            "http://localhost:8890",
 
           changeOrigin: true,
           secure: false,
